@@ -1,13 +1,12 @@
 class PerformersController < ApplicationController
-  def index
-    @performers = Performer.all
+  def new
+    @performer = Performer.new
   end
 
   def show
     # 詳細表示ロジック
   end
 
-  def new
-    # 新規作成フォーム表示
+  def index
   end
 end

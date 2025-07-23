@@ -33,9 +33,14 @@ class VideosController < ApplicationController
       render :new
     end
   end
+
+  def video_params
+    params.require(:video).permit(:title, :introduction, :video)
+  end
   def index
   end
 
   def show
+    @video = Video.find(params[:id])
   end
 end

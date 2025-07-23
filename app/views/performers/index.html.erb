@@ -1,2 +1,40 @@
-<h1>Performers#index</h1>
-<p>Find me in app/views/performers/index.html.erb</p>
+<div class="home-middle">
+  <div class="top-performers">
+    <h2>作業者一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>作業者名</th>
+          <th>パフォーマンス更新日</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @top_performers.each do |performer| %>
+          <tr>
+            <td><%= performer[:name] %></td>
+            <td><%= performer[:latest_performance_date] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <div class="unhealthy-performers">
+    <h2>体調不良一覧</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>作業者名</th>
+          <th>問題のある運動数</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @unhealthy_performers.each do |performer| %>
+          <tr>
+            <td><%= performer[:name] %></td>
+            <td><%= performer[:low_z_count] %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</div>

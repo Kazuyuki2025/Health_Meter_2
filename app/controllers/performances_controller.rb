@@ -1,8 +1,8 @@
 class PerformancesController < ApplicationController
   def new
+    @performance = Performance.new
   end
 
   def healthy_ranking
-    # 処理を書く
   end
 end
