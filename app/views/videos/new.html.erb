@@ -1,91 +1,24 @@
+<h1>動画のアップロード</h1>
+
+<%= link_to '一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
+
 <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
- 
-   <div id="drop-zone" class="drop-zone border rounded shadow p-5 text-center mb-3">
-    <p id="drop-zone-text" class="mb-3">
-      動画ファイルを選択してください
-    </p>
-    <%= form.file_field :file, accept: 'video/*', id: "file-input", class: "form-control d-none" %>
+  <% if flash[:alert] %>
+    <div style="color: red;"><%= flash[:alert] %></div>
+  <% end %>
+
+  <% if flash[:notice] %>
+    <div style="color: green;"><%= flash[:notice] %></div>
+  <% end %>
+
+  <div class="field">
+    <p>動画ファイル</p>
+    <div id="drop-zone" class="drop-zone border rounded shadow p-5 text-center mb-3">
+      <%= form.file_field :video_file, accept: 'video/*', id: "file-input", class: "form-control d-none" %>
+    </div>
   </div>
 
-  <div class="text-center">
-    <%= form.submit "アップロード", id: "submit-button", class: "btn btn-success btn-lg mt-3 d-none" %>
+  <div class="actions mt-3 text-center">
+    <%= form.submit "アップロード", id: "submit-button", class: "btn btn-primary btn-lg mt-3 d-none" %>
   </div>
 <% end %>
-</div>
-
-<% if flash[:alert] %>
-  <div style="color: red;"><%= flash[:alert] %></div>
-<% end %>
-
-<% if flash[:notice] %>
-  <div style="color: green;"><%= flash[:notice] %></div>
-<% end %>
-
-<script>
-  document.addEventListener("DOMContentLoaded", function () {
-    const dropZone = document.getElementById("drop-zone");
-    const fileInput = document.getElementById("file-input");
-    const submitButton = document.getElementById("submit-button");
-
-    // ドラッグ＆ドロップのイベント
-    dropZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      dropZone.classList.add("drag-over");
-    });
-
-    dropZone.addEventListener("dragleave", () => {
-      dropZone.classList.remove("drag-over");
-    });
-
-    dropZone.addEventListener("drop", (e) => {
-      e.preventDefault();
-      dropZone.classList.remove("drag-over");
-
-      if (e.dataTransfer.files.length) {
-        fileInput.files = e.dataTransfer.files; // ファイルをfileInputにセット
-        submitButton.classList.remove("d-none"); // アップロードボタンを表示
-      }
-    });
-
-    // ドロップゾーンをクリックした場合
-    dropZone.addEventListener("click", () => {
-      fileInput.click();
-    });
-
-    // ファイル選択時のイベント
-    fileInput.addEventListener("change", () => {
-      if (fileInput.files.length) {
-        submitButton.classList.remove("d-none"); // アップロードボタンを表示
-      }
-    });
-  });
-</script>
-
-<style>
-  /* ドロップゾーンのスタイル */
-  .drop-zone {
-    width: 100%;
-    max-width: 500px;
-    height: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f8f9fa;
-    border: 2px dashed #ced4da;
-    cursor: pointer;
-    transition: background-color 0.3s, border-color 0.3s;
-  }
-
-  .drop-zone:hover {
-    background-color: #e9ecef;
-    border-color: #17a2b8;
-  }
-
-  .drop-zone.drag-over {
-    background-color: #d1ecf1;
-    border-color: #0c5460;
-  }
-
-  .d-none {
-    display: none !important;
-  }

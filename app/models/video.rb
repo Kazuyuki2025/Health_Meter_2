@@ -1,4 +1,4 @@
 class Video < ApplicationRecord
-  validates :path, presence: true
-  has_one_attached :file
+  has_one_attached :video_file
+  validates :video_file, presence: true
 end

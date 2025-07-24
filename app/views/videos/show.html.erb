@@ -1,5 +1,17 @@
-<% if @video.video.attached? %>
-  <p><%= @video.title %></p> <br>
-  <p><%= @video.introduction %></p>
-  <%= video_tag rails_blob_path(@video.video) %>
-<% end %>
+<div class="container mt-4">
+  <h1><%= @video.id %></h1>
+
+  <% if @video.video_file.attached? %>
+    <%= video_tag rails_blob_path(@video.video_file), 
+        controls: true, 
+        class: "img-fluid", 
+        style: "max-width: 100%; height: auto;"
+     %>
+  <% else %>
+    <p>動画が添付されていません。</p>
+  <% end %>
+
+  <div class="mt-3">
+    <%= link_to '一覧に戻る', videos_path, class: 'btn btn-secondary' %>
+  </div>
+</div>
