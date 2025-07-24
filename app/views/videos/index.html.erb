@@ -1,2 +1,9 @@
-<h1>Videos#index</h1>
-<p>Find me in app/views/videos/index.html.erb</p>
+<h1>動画一覧</h1>
+
+<ul>
+  <% @videos.each do |video| %>
+    <li><%= video.title %></li>
+  <% end %>
+</ul>
+
+<%= link_to '新規作成（動画アップロード）', new_video_path %>

@@ -1,10 +1,25 @@
-<%= form_with model: @video, local: true do |form| %>
-  <p>title</p><%= form.text_field :title %> <br>
-  <p>introduction</p><%= form.text_area :introduction %> <br>
-  <p>video</p><%= form.file_field :video %> <br>
-  <%= form.submit %>
+<%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
+ 
+   <div id="drop-zone" class="drop-zone border rounded shadow p-5 text-center mb-3">
+    <p id="drop-zone-text" class="mb-3">
+      動画ファイルを選択してください
+    </p>
+    <%= form.file_field :file, accept: 'video/*', id: "file-input", class: "form-control d-none" %>
+  </div>
+
+  <div class="text-center">
+    <%= form.submit "アップロード", id: "submit-button", class: "btn btn-success btn-lg mt-3 d-none" %>
+  </div>
+<% end %>
+</div>
+
+<% if flash[:alert] %>
+  <div style="color: red;"><%= flash[:alert] %></div>
 <% end %>
 
+<% if flash[:notice] %>
+  <div style="color: green;"><%= flash[:notice] %></div>
+<% end %>
 
 <script>
   document.addEventListener("DOMContentLoaded", function () {

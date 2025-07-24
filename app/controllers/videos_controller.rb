@@ -4,43 +4,53 @@ class VideosController < ApplicationController
   end
 
   def create
-    @video = Video.new(video_params)
+    @video = Video.new
+    uploaded_file = params[:video][:video_file]
 
-    if params[:video][:file].blank?
-      flash[:alart] = "ファイルを選択してください"
+    if uploaded_file.blank?
+      flash[:alert] = "ファイルを選択してください"
       render :new and return
     end
 
-    @video.file.attach(io: params[:video][:path].open, filename: params[:video][:path].original_filename)
+    @video = Video.new(video_params)
+    @video.file.attach(uploaded_file)
 
-    video_path = ActiveStorage::Blob.service.path_for(@video.file.key)
-
-    # コーデックの判定，"H.264"出でない場合は変換
-    movie = FFMPEG::Movie.new(video_path)
-    puts "---------------\nMovie Codec: #{movie.video_codec}\n"
-    if movie.video_codec != "h264"
-      h264_path = video_path.to_s.sub(/\.mp4\z/, "_h264.mp4")
-      movie.transcode(h264_path, %w[-vcodec libx264 -acodec aac -movflags +faststart])
-      FileUtils.mv(h264_path, video_path) # 上書き
+    if @video.file.attached?
+      video_path = ActiveStorage::Blob.service.path_for(@video.file.key)
+      convert_to_h264_if_needed(video_path)
     end
 
     # データベースに保存
     if @video.save
       flash[:notice] = "動画がアップロードされました"
       redirect_to @video
+      puts "succeed---------------------------------------"
     else
-      flash[:alert] = "動画のアップロードに失敗しました"
+      flash[:alert] = "動画のアップロード中にエラーが発生しました: #{e.message}"
+      Rails.logger.error "Flash Alert: #{flash[:alert]}"
       render :new
+
     end
   end
 
   def video_params
-    params.require(:video).permit(:title, :introduction, :video)
+    params.require(:video).permit(:file)
   end
   def index
+    @videos = Video.all
   end
 
   def show
     @video = Video.find(params[:id])
+  end
+
+  def convert_to_h264_if_needed(video_path)
+    movie = FFMPEG::Movie.new(video_path)
+    Rails.logger.info "Movie Codec: #{movie.video_codec}"
+    unless movie.video_codec == "h264"
+      h264_path = video_path.to_s.sub(/\.mp4\z/, "_h264.mp4")
+      movie.transcode(h264_path, %w[-vcodec libx264 -acodec aac -movflags +faststart])
+      FileUtils.mv(h264_path, video_path)
+    end
   end
 end

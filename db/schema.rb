@@ -66,7 +66,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_07_22_075239) do
   end
 
   create_table "videos", force: :cascade do |t|
-    t.string "path"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
   end
