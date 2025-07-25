@@ -1,6 +1,6 @@
 <h1>動画のアップロード</h1>
 
-<%= link_to '一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
+<%= link_to '動画一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
 
 <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
   <% if flash[:alert] %>

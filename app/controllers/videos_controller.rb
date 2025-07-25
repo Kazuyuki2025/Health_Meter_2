@@ -43,7 +43,7 @@ class VideosController < ApplicationController
       end
 
       if @video.save
-        redirect_to @video, notice: "動画がアップロードされました"
+        redirect_to new_video_path, notice: "動画がアップロードされました"
       else
         render :new, status: :unprocessable_entity
       end
@@ -74,5 +74,18 @@ class VideosController < ApplicationController
     redirect_to videos_path, notice: "動画を削除しました", status: :see_other
   rescue ActiveRecord::RecordNotFound
     redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
+  end
+
+  def analize
+    @video = Video.find(params[:id])
+    video_path = ActiveStorage::Blob.service.send(:path_for, @video.video_file.key)
+    script_path = Rails.root.join("app/controllers/python/detect_video.py")
+
+    result = `python3 #{script_path} #{video_path}`
+    if $?.success?
+      flash[:notice] = "動画の解析が完了しました"
+    else
+      flash[:alert] = "動画の解析中にエラーが発生しました: #{result}"
+    end
   end
 end

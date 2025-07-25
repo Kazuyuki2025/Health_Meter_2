@@ -1,2 +1,18 @@
-<h1>Performers#new</h1>
-<p>Find me in app/views/performers/new.html.erb</p>
+<h1>新規演者登録</h1>
+<%= link_to '演者一覧へ戻る', performers_path, class: 'btn btn-secondary mb-3' %>
+
+<%= form_with model: @performer, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
+  <div class="mb-3">
+    <%= form.label :num, "id" %>
+    <%= form.number_field :num, class: "form-control", required: true %>
+  </div>
+
+  <div class="mb-3">
+    <%= form.label :name, "名前" %>
+    <%= form.text_field :name, class: "form-control", required: true %>
+  </div>
+
+  <div class="mb-3">
+    <%= form.submit "登録", class: "btn btn-primary" %>
+  </div>
+<% end %>

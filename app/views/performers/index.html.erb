@@ -1,40 +1,35 @@
-<div class="home-middle">
-  <div class="top-performers">
-    <h2>作業者一覧</h2>
-    <table>
-      <thead>
+<h1>演者一覧</h1>
+
+<% if @performers.present?%>
+  <table>
+    <thead>
+      <tr>
+        <th>id</th>
+        <th>名前</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @performers.each do |performer| %>
         <tr>
-          <th>作業者名</th>
-          <th>パフォーマンス更新日</th>
+          <td><%= performer.num %></td>
+          <td><%= performer.name %></td>
         </tr>
-      </thead>
-      <tbody>
-        <% @top_performers.each do |performer| %>
-          <tr>
-            <td><%= performer[:name] %></td>
-            <td><%= performer[:latest_performance_date] %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-  <div class="unhealthy-performers">
-    <h2>体調不良一覧</h2>
-    <table>
-      <thead>
         <tr>
-          <th>作業者名</th>
-          <th>問題のある運動数</th>
+          <td colspan="2">
+            <%= button_to '削除', 
+            performer_path(performer), method: :delete, 
+            class: "btn btn-danger btn-sm",
+            data: { turbo_confirm: '本当に削除しますか？' } %>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        <% @unhealthy_performers.each do |performer| %>
-          <tr>
-            <td><%= performer[:name] %></td>
-            <td><%= performer[:low_z_count] %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+      <% end %>
+    </tbody>
+  </table>
+<% else %>
+  <p>演者が登録されていません。</p>
+<% end %>
+
+<%= link_to '新規演者登録', new_performer_path, class: 'btn btn-primary' %>
+  <div class="mt-3">
+    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary' %>
   </div>
-</div>

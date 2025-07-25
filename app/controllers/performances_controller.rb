@@ -3,6 +3,13 @@ class PerformancesController < ApplicationController
     @performance = Performance.new
   end
 
-  def healthy_ranking
+  def create
+  end
+  def show
+    @performance = Performance.find(params[:id])
+  end
+
+  def index
+    @performances = Performance.all
   end
 end
