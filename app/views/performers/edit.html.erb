@@ -1,0 +1,14 @@
+<h1>演者の編集</h1>
+
+<%= form_with model: @performer, local: true do |f| %>
+
+  <div class="mb-3">
+    <%= f.label :name, "名前" %><br>
+    <%= f.text_field :name, class: "form-control" %>
+  </div>
+
+  <div class="actions">
+    <%= f.submit "更新する", class: "btn btn-primary" %>
+    <%= link_to "キャンセル", performers_path, class: "btn btn-secondary" %>
+  </div>
+<% end %>

@@ -26,4 +26,10 @@
   <div class="actions mt-3 text-center">
     <%= form.submit "アップロード", id: "submit-button", class: "btn btn-primary btn-lg mt-3 d-none" %>
   </div>
+  
+  <% if @images.present? %>
+    <% @images.each do |img_path| %>
+      <img src="<%= img_path %>" alt="face">
+    <% end %>
+  <% end %>
 <% end %>

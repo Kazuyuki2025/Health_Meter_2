@@ -43,7 +43,19 @@ class VideosController < ApplicationController
       end
 
       if @video.save
-        redirect_to new_video_path, notice: "動画がアップロードされました"
+        # redirect_to video_path, notice: "動画がアップロードされました"
+
+        video_id = @video.id
+        video_path = ActiveStorage::Blob.service.send(:path_for, @video.video_file.key)
+        system("python3 app/controllers/python/extract_fases.py #{video_id} #{Shellwords.escape(video_path)}")
+
+        image_dir = "/first_frame/#{video_id}"
+        @images = Dir.glob(Rails.root.join("public", "first_frame", video_id.to_s, "*.jpg")).map do |img|
+          File.join(image_dir, File.basename(img))
+      end
+
+        flash.now[:notice] = "動画がアップロードされました"
+        render :new
       else
         render :new, status: :unprocessable_entity
       end
@@ -70,15 +82,16 @@ class VideosController < ApplicationController
   def edit
     @video = Video.find(params[:id])
   end
+
   def update
-    @video = Video.find(params[:id])
-    if @video.update(video_params)
-      redirect_to @video, notice: "動画情報を更新しました"
-    else
-      render :edit, status: :unprocessable_entity
-    end
+  @video = Video.find(params[:id])
+  if @video.update(video_params)
+    redirect_to videos_path, notice: "動画情報を更新しました"
+  else
+    render :edit, status: :unprocessable_entity
+  end
   rescue ActiveRecord::RecordNotFound
-    redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
+  redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
   end
 
   def destroy
@@ -88,18 +101,5 @@ class VideosController < ApplicationController
     redirect_to videos_path, notice: "動画を削除しました", status: :see_other
   rescue ActiveRecord::RecordNotFound
     redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
-  end
-
-  def analize
-    @video = Video.find(params[:id])
-    video_path = ActiveStorage::Blob.service.send(:path_for, @video.video_file.key)
-    script_path = Rails.root.join("app/controllers/python/detect_video.py")
-
-    result = `python3 #{script_path} #{video_path}`
-    if $?.success?
-      flash[:notice] = "動画の解析が完了しました"
-    else
-      flash[:alert] = "動画の解析中にエラーが発生しました: #{result}"
-    end
   end
 end

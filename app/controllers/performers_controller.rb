@@ -24,6 +24,18 @@ class PerformersController < ApplicationController
     @performers = Performer.all
   end
 
+  def edit
+    @performer = Performer.find(params[:id])
+  end
+
+  def update
+    @performer = Performer.find(params[:id])
+    if @performer.update(performer_params)
+    redirect_to performers_path, notice: "動画情報を更新しました"
+    else
+    render :edit, status: :unprocessable_entity
+    end
+  end
   def destroy
     @performer = Performer.find(params[:id])
     @performer.destroy
@@ -33,4 +45,8 @@ class PerformersController < ApplicationController
     flash.now[:alert] = "パフォーマーの削除中にエラーが発生しました"
     render :index, status: :unprocessable_entity
   end
+end
+
+def performer_params
+  params.require(:performer).permit(:num, :name)
 end

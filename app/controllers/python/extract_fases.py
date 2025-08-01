@@ -5,7 +5,7 @@ from ultralytics import YOLO
 
 video_id = sys.argv[1]
 video_path = sys.argv[2]
-output_dir = Path(f"./public/face_thumbs/{video_id}")
+output_dir = Path(f"./public/first_frame/{video_id}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 model = YOLO("yolov8n.pt")
@@ -16,8 +16,16 @@ if not ret:
     print("Failed to read video")
     exit(1)
 
-results = model(frame)
-for i, box in enumerate(results[0].boxes.xyxy):
-    x1, y1, x2, y2 = map(int, box)
-    face = frame[y1:y2, x1:x2]
-    cv2.imwrite(str(output_dir / f"person_{i}.jpg"), face)
+results = model.track(frame, tracker="bytetrack.yaml", classes=[0]) 
+
+for box in results[0].boxes:
+    cls = int(box.cls[0])
+    if cls == 0:  # 人だけ
+        x1, y1, x2, y2 = map(int, box.xyxy[0])
+        track_id = box.id[0] if box.id is not None else -1
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        # ID表示
+        cv2.putText(frame, f"ID: {track_id}", (x1, y1 - 10),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+cv2.imwrite(str(output_dir / "full_frame_with_boxes_and_ids.jpg"), frame)
