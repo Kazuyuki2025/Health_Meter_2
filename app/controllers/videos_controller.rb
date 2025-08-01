@@ -1,3 +1,6 @@
+require "shellwords"
+require "open3"
+
 class VideosController < ApplicationController
   def new
     @video = Video.new
@@ -47,12 +50,26 @@ class VideosController < ApplicationController
 
         video_id = @video.id
         video_path = ActiveStorage::Blob.service.send(:path_for, @video.video_file.key)
-        system("python3 app/controllers/python/extract_fases.py #{video_id} #{Shellwords.escape(video_path)}")
+        script_path = Rails.root.join("app/controllers/python/extract_fases.py")
+        command = "python3 #{script_path} #{video_id} #{Shellwords.escape(video_path)}"
+
+        stdout, stderr, status = Open3.capture3(command)
+
+        if status.success?
+        result = stdout.strip
+        puts "--------- PYTHON OUTPUT: #{result} ---------"
+        @detected_ids = result.split(",").map(&:to_i)
+        else
+          Rails.logger.error("Python Error: #{stderr}")
+          @detected_ids = []
+        end
 
         image_dir = "/first_frame/#{video_id}"
         @images = Dir.glob(Rails.root.join("public", "first_frame", video_id.to_s, "*.jpg")).map do |img|
           File.join(image_dir, File.basename(img))
       end
+
+      puts "------------------------------------------#{result}-----------------------------------"
 
         flash.now[:notice] = "動画がアップロードされました"
         render :new
