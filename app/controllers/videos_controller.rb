@@ -56,7 +56,7 @@ class VideosController < ApplicationController
   end
 
   def video_params
-    params.require(:video).permit(:video_file)
+    params.require(:video).permit(:title, :video_file)
   end
 
   def index
@@ -65,6 +65,20 @@ class VideosController < ApplicationController
 
   def show
     @video = Video.find(params[:id])
+  end
+
+  def edit
+    @video = Video.find(params[:id])
+  end
+  def update
+    @video = Video.find(params[:id])
+    if @video.update(video_params)
+      redirect_to @video, notice: "動画情報を更新しました"
+    else
+      render :edit, status: :unprocessable_entity
+    end
+  rescue ActiveRecord::RecordNotFound
+    redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
   end
 
   def destroy

@@ -1,0 +1,18 @@
+<h1>動画情報の編集</h1>
+
+<%= form_with model: @video, local: true do |f| %>
+  <div class="mb-3">
+    <%= f.label :title, "動画タイトル" %><br>
+    <%= f.text_field :title, class: "form-control" %>
+  </div>
+
+  <div class="mb-3">
+    <%= f.label :video_file, "動画ファイル（再アップロードする場合）" %><br>
+    <%= f.file_field :video_file, class: "form-control" %>
+  </div>
+
+  <div class="actions">
+    <%= f.submit "更新する", class: "btn btn-primary" %>
+    <%= link_to "キャンセル", videos_path, class: "btn btn-secondary" %>
+  </div>
+<% end %>

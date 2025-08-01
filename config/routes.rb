@@ -1,6 +1,6 @@
 Rails.application.routes.draw do
-  resources :videos, only: [ :index, :new, :create, :show, :destroy ]
-  resources :performers, only: [ :index, :new, :create, :show, :destroy ]
-  resources :performances, only: [ :index, :new, :create, :show, :destroy ]
+  resources :videos
+  resources :performers
+  resources :performances
   root "performers#index"
 end

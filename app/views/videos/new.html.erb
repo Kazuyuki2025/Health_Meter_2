@@ -11,6 +11,11 @@
     <div style="color: green;"><%= flash[:notice] %></div>
   <% end %>
 
+  <div class="field mb-3">
+    <%= form.label :title, "動画タイトル"%>
+    <%= form.text_field :title, class: "form-control", placeholder: "タイトルを入力してください"%>
+  </div>
+
   <div class="field">
     <p>動画ファイル</p>
     <div id="drop-zone" class="drop-zone border rounded shadow p-5 text-center mb-3">
