@@ -56,12 +56,13 @@ class VideosController < ApplicationController
         stdout, stderr, status = Open3.capture3(command)
 
         if status.success?
-        result = stdout.strip
-        puts "--------- PYTHON OUTPUT: #{result} ---------"
-        @detected_ids = result.split(",").map(&:to_i)
+          result = stdout.strip
+          @detected_ids = result.split(",").map(&:to_i)
+          notice_msg = "動画がアップロードされました。画像解析で #{@detected_ids.size} 人を検出しました。"
         else
           Rails.logger.error("Python Error: #{stderr}")
           @detected_ids = []
+          notice_msg = "動画がアップロードされましたが、画像解析に失敗しました。"
         end
 
         image_dir = "/first_frame/#{video_id}"
@@ -69,9 +70,10 @@ class VideosController < ApplicationController
           File.join(image_dir, File.basename(img))
       end
 
-      puts "------------------------------------------#{result}-----------------------------------"
+        flash.now[:notice] = notice_msg
+        Rails.logger.info "\n\n\n\n動画解析開始\n\n\n\n"
+        DetectVideoJob.perform_later(@video.id)
 
-        flash.now[:notice] = "動画がアップロードされました"
         render :new
       else
         render :new, status: :unprocessable_entity

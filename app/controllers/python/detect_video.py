@@ -8,6 +8,7 @@ from argparse import RawTextHelpFormatter
 import math
 import json
 
+
 COLOR = (0, 255, 0)
 VAR_THICKNESS = 20
 FONT_SCALE = 2.0
@@ -27,12 +28,9 @@ parser.add_argument('--limit', help='Set number of detected people', default=100
 parser.add_argument('--fps', help='Set FPS', default=20)
 parser.add_argument('--model', help='Set model_data', default='model/yolov8n.pt')
 parser.add_argument('--framesize', type=tp, help='Set width and height of framesize', default='1920,1080')
-parser.add_argument('--output', help='Output video data', default=False)
-parser.add_argument('--csv', help='Output CSV data', default=False)
 parser.add_argument('--start', help='Set start of frame', type=int, default=2)
 parser.add_argument('--end', help='Set end of frame', type=int, default=0)
 parser.add_argument('input', help='Input video data', default=f'input_data/{dt_now}.mp4')
-parser.add_argument('output_image', help='Output first frame image', default='output_image.jpg')
 
 parser.usage = parser.format_help()
 
@@ -44,13 +42,10 @@ frame_height = args.framesize[1]
 detect_limit = args.limit
 detect_type = int(args.type)
 input_file = args.input
-output_file = args.output
-csv_file = args.csv
 model_data = args.model
 start_frame = args.start
 end_frame = args.end
 validation = OUTLIER
-output_image = args.output_image
 
 # Load learning model
 model = YOLO(model_data)
@@ -89,17 +84,6 @@ previous_coordinates = {}
 
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-if csv_file:
-    csv_file = open(csv_file, mode='w', newline='')
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(['frame_number', 'activity'])
-
-if output_file:
-    fmt = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    writer = cv2.VideoWriter(output_file, fmt, fps, (frame_width, frame_height))
-
-first_frame_saved = False
 frame_baseline_limit = 10
 frame_skip = 1000  # ここで何フレームごとに処理するか指定
 
@@ -119,10 +103,6 @@ for i in range(frame_count):
     classes = results[0].boxes.cls
     boxes = results[0].boxes
     annotatedFrame = results[0].plot()
-
-    if not first_frame_saved:
-        cv2.imwrite(output_image, annotatedFrame)
-        first_frame_saved = True
 
     current_ids = set()
     current_coordinates = {}
@@ -186,20 +166,6 @@ for i in range(frame_count):
         if played_frame >= start_frame+2:
             print(f"Frame {played_frame-2}: Evaluation = {'{:.2f}'.format(evaluation)}, ID = {ids}")
 
-        if output_file:
-            LINE_START = (int(x1), int(y2))
-            LINE_FINISH = (int(x1), int(y2-evaluation*4))
-            ACTIVITY_COORDINATE = (x1+15, y2-10)
-
-            if played_frame >= start_frame+3:
-                cv2.line(annotatedFrame, pt1=LINE_START, pt2=LINE_FINISH, color=COLOR, thickness=VAR_THICKNESS, lineType=cv2.LINE_4)
-            cv2.putText(annotatedFrame, f"HUMAN ACTIVITY {int(evaluation)}", ACTIVITY_COORDINATE, cv2.FONT_HERSHEY_PLAIN, FONT_SCALE, COLOR, TEXT_THICKNESS, cv2.LINE_AA)
-            writer.write(annotatedFrame)
-
-        if csv_file:
-            if played_frame >= start_frame+2:
-                csv_writer.writerow([played_frame-2, '{:.2f}'.format(evaluation)])
-
     # Update previous coordinates
     for id in baseline_ids:
         if id not in current_ids:
@@ -222,11 +188,6 @@ for obj_id, evaluations in analysis_results.items():
 print("--- Averages per segment ---")
 for obj_id, averages in averaged_results.items():
    print(f"ID: {obj_id}, Averages: {averages}")
-
-if csv_file:
-    csv_file.close()
-if output_file:
-    writer.release()
 
 cv2.destroyAllWindows()
 print("---end---")
