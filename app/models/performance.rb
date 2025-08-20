@@ -1,4 +1,5 @@
 class Performance < ApplicationRecord
-  belongs_to :performer
+  has_many :activities
+  belongs_to :performer, optional: true
   belongs_to :video
 end

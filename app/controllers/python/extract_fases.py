@@ -6,7 +6,7 @@ from ultralytics import YOLO
 video_id = sys.argv[1]
 video_path = sys.argv[2]
 
-output_dir = Path(f"./public/first_frame/{video_id}")
+output_dir = Path(f"./public/first_frame/video_id_{video_id}")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 model = YOLO("yolov8n.pt")
@@ -17,7 +17,7 @@ for i in range(10):
     if not ret:
         exit(1)
     if i == 9:
-        results = model(frame, classes=[0], verbose=False)  # 人クラスのみ
+        results = model(frame, classes=[0], verbose=False)
         # 人物検出とID取得
         id_list = []
         if results[0].boxes is not None:
