@@ -21,14 +21,14 @@ class VideosController < ApplicationController
       flash.now[:notice] = result.notice_msg
       render :new
     else
-      @video = result.video
+      @video = result.video || Video.new
       flash.now[:alert] = result.error_message
       render :new, status: :unprocessable_entity
     end
   end
 
   def video_params
-    params.require(:video).permit(:title, :video_file)
+    params.require(:video).permit(:title, :video_file, :analysis_status)
   end
 
   def index

@@ -85,7 +85,7 @@ previous_coordinates = {}
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
 frame_baseline_limit = 10
-frame_skip = 1  # ここで何フレームごとに処理するか指定
+frame_skip = 100 # ここで何フレームごとに処理するか指定
 
 for i in range(frame_count):
     ret, frame = cap.read()

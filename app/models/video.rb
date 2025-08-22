@@ -1,10 +1,12 @@
 class Video < ApplicationRecord
   has_one_attached :video_file
+
   validates :title, presence: true
-  validates :video_file, presence: true
-  enum analysis_status: {
+
+  enum :analysis_status, {
     pending: "pending",
-    detected: "detected",
+    analyzing: "analyzing",
     completed: "completed",
-    failed: "failed" }
+    failed: "failed"
+  }, validate: true
 end
