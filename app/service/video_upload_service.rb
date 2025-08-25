@@ -32,7 +32,7 @@ class VideoUploadService
       start_video_analysis
       success
     else
-      failure("動画の保存に失敗しました")
+      failure("動画の保存に失敗しました: #{video.errors.full_messages.join(', ')}")
     end
   rescue => e
     Rails.logger.error "エラー発生: #{e.message}"
@@ -53,28 +53,35 @@ class VideoUploadService
       transcoded = true
     end
 
-    video.video_file.attach(
+    video.video_content.attach(
       io: File.open(attach_source_path),
       filename: uploaded_file.original_filename,
       content_type: "video/mp4"
     )
 
-    # 変換で生成した一時ファイルを削除
-    if transcoded && File.exist?(attach_source_path)
-      FileUtils.rm_f(attach_source_path)
-    end
+    FileUtils.rm_f(attach_source_path) if transcoded && File.exist?(attach_source_path)
   end
 
   def analyze_first_frame
-    video_path = ActiveStorage::Blob.service.send(:path_for, video.video_file.key)
-    script_path = Rails.root.join("app/controllers/python/extract_fases.py")
-    command = "python3 #{script_path} #{video.id} #{Shellwords.escape(video_path)}"
+    video_path = ActiveStorage::Blob.service.send(:path_for, video.video_content.key)
+    script_path = Rails.root.join("app/controllers/python/extract_frames.py")
 
+    # Pythonスクリプトは生成したサムネイルのパスを返すようにする
+    command = "python3 #{script_path} #{video.id} #{Shellwords.escape(video_path)}"
     stdout, stderr, status = Open3.capture3(command)
 
     if status.success?
-      result_line = stdout.strip.split("\n").last.to_s
-      @detected_ids = result_line.empty? ? [] : result_line.split(",").map { |x| x.to_i }
+      lines = stdout.strip.split("\n")
+      ids_line = lines.first || ""
+      thumbnail_path_line = lines.find { |line| line.start_with?("THUMBNAIL_PATH:") }
+
+      @detected_ids = ids_line.empty? ? [] : ids_line.split(",").map(&:to_i)
+
+      if thumbnail_path_line
+        thumbnail_path = thumbnail_path_line.sub("THUMBNAIL_PATH:", "").strip
+        attach_thumbnail_file(thumbnail_path)
+      end
+
       @notice_msg = "動画がアップロードされました。画像解析で #{@detected_ids.size} 人を検出しました。"
     else
       Rails.logger.error("Python Error: #{stderr}")
@@ -85,10 +92,24 @@ class VideoUploadService
     @images = get_generated_images
   end
 
+  def attach_thumbnail_file(file_path)
+    return unless File.exist?(file_path)
+
+    video.video_thumbnail.attach(
+      io: File.open(file_path),
+      filename: File.basename(file_path),
+      content_type: "image/jpeg"
+    )
+
+    # 一時ファイルを削除
+    FileUtils.rm_f(file_path)
+  rescue => e
+    Rails.logger.error "Thumbnail attachment failed: #{e.message}"
+  end
+
   def get_generated_images
-    image_dir_fs = Rails.root.join("public", "first_frame", "video_id_#{video.id}")
-    web_dir = "/first_frame/video_id_#{video.id}"
-    Dir.glob(image_dir_fs.join("*.jpg")).map { |p| File.join(web_dir, File.basename(p)) }
+    return [] unless video.video_thumbnail.attached?
+    [ video.thumbnail_url ]
   end
 
   def start_video_analysis
@@ -97,13 +118,13 @@ class VideoUploadService
   end
 
   def success
-    OpenStruct.new(
-      success?: true,
-      video: video,
-      detected_ids: @detected_ids || [],
-      images: @images || [],
-      notice_msg: @notice_msg || "動画がアップロードされました"
-    )
+  OpenStruct.new(
+    success?: true,
+    video: video,
+    detected_ids: @detected_ids || [],
+    images: @images || [],
+    notice_msg: @notice_msg || "動画がアップロードされました"
+  )
   end
 
   def failure(message)

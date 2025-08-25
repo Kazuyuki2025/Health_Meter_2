@@ -13,7 +13,7 @@ class DetectVideoJob < ApplicationJob
     video.update!(analysis_status: "analyzing")
 
     begin
-      video_path = ActiveStorage::Blob.service.send(:path_for, video.video_file.key)
+      video_path = ActiveStorage::Blob.service.send(:path_for, video.video_content.key)
       script_path = Rails.root.join("app/controllers/python/detect_video.py")
 
       Rails.logger.info "DetectVideoJob 実行開始"

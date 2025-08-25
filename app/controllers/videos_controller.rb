@@ -9,7 +9,7 @@ class VideosController < ApplicationController
   def create
     service = VideoUploadService.new(
       video_params: video_params,
-     uploaded_file: params[:video][:video_file]
+     uploaded_file: params[:video][:video_content]
     )
 
     result = service.call
@@ -28,7 +28,7 @@ class VideosController < ApplicationController
   end
 
   def video_params
-    params.require(:video).permit(:title, :video_file, :analysis_status)
+    params.require(:video).permit(:title, :video_content, :analysis_status)
   end
 
   def index
