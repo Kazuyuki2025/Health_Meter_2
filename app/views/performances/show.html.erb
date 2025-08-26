@@ -1,0 +1,34 @@
+<h1>パフォーマンス詳細</h1>
+
+<div class="performance-info">
+  <h3>動画情報</h3>
+  <p>タイトル: <%= @video.title %></p>
+  <p>解析状況: <%= @video.analysis_status %></p>
+</div>
+
+<div class="analysis-results">
+  <h3>解析結果 (Activityテーブルから)</h3>
+  
+  <% if @video.analysis_status == "completed" && @segment_activities.present? %>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>セグメント</th>
+          <th>活動量</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @segment_activities.each do |segment, activities| %>
+          <tr>
+            <td>セグメント <%= segment + 1 %></td>
+            <td><%= sprintf("%.2f", activities.first.value) %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+    
+    <p>平均活動量: <%= sprintf("%.2f", @performance.average_activity) %></p>
+  <% else %>
+    <p>解析結果がありません</p>
+  <% end %>
+</div>

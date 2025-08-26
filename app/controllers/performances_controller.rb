@@ -10,6 +10,9 @@ class PerformancesController < ApplicationController
   end
   def show
     @performance = Performance.find(params[:id])
+    @video = @performance.video
+    @analysis_results = get_analysis_results
+    @segment_activities = @performance.get_segment_activities
   end
 
   def edit
