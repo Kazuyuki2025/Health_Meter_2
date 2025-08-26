@@ -1,3 +1,6 @@
+require "open3"
+require "json"
+
 class PerformancesController < ApplicationController
   def new
     @performance = Performance.new

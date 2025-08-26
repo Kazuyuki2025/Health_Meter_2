@@ -7,6 +7,7 @@ import datetime
 from argparse import RawTextHelpFormatter
 import math
 import json
+import sys
 
 
 COLOR = (0, 255, 0)
@@ -185,12 +186,10 @@ for obj_id, evaluations in analysis_results.items():
     else:
         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
 
-print("--- Averages per segment ---")
+print("--- Averages per segment ---", file=sys.stderr)
 for obj_id, averages in averaged_results.items():
-   print(f"ID: {obj_id}, Averages: {averages}")
-
-cv2.destroyAllWindows()
-print("---end---")
+    print(f"ID: {obj_id}, Averages: {averages}", file=sys.stderr)
+print("---end---", file=sys.stderr)
 
 safe_results = {str(obj_id): [float(v) for v in averages] for obj_id, averages in averaged_results.items()}
 print(json.dumps({"averaged_results": safe_results}))
