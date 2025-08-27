@@ -14,7 +14,7 @@
       <div class="performance-card">
         <!-- サムネイル表示 -->
         <div class="thumbnail">
-          <% if performance.video.video_thumbnail.attached? %>
+          <% if performance.video.thumbnail.attached? %>
             <%= image_tag performance.video.thumbnail_url, 
                 alt: "#{performance.video.title} thumbnail",
                 class: "performance-thumbnail" %>
