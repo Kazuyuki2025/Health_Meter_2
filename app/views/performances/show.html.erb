@@ -1,34 +1,214 @@
-<h1>パフォーマンス詳細</h1>
+<div class="container">
+  <div class="performance-header">
+    <h1>パフォーマンス詳細</h1>
+    <div class="actions">
+      <%= link_to "編集", edit_performance_path(@performance), class: "btn btn-primary" %>
+      <%= link_to "一覧に戻る", performances_path, class: "btn btn-secondary" %>
+    </div>
+  </div>
 
-<div class="performance-info">
-  <h3>動画情報</h3>
-  <p>タイトル: <%= @video.title %></p>
-  <p>解析状況: <%= @video.analysis_status %></p>
-</div>
+  <!-- 動画情報セクション -->
+  <div class="video-section">
+    <div class="video-info">
+      <h2><%= @video.title %></h2>
+      <p>解析状況: <span class="status-<%= @video.analysis_status %>"><%= @video.analysis_status.capitalize %></span></p>
+      <p>演者: <%= @performance.performer&.name || "未設定" %></p>
+      <p>日付: <%= @performance.date %></p>
+    </div>
 
-<div class="analysis-results">
-  <h3>解析結果 (Activityテーブルから)</h3>
-  
-  <% if @video.analysis_status == "completed" && @segment_activities.present? %>
-    <table border="1">
-      <thead>
-        <tr>
-          <th>セグメント</th>
-          <th>活動量</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @segment_activities.each do |segment, activities| %>
-          <tr>
-            <td>セグメント <%= segment + 1 %></td>
-            <td><%= sprintf("%.2f", activities.first.value) %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+    <!-- 動画プレイヤー -->
+    <div class="video-player">
+      <% if @video.video_content.attached? %>
+        <video controls width="100%" style="max-width: 800px;">
+          <source src="<%= @video.video_content_url %>" type="video/mp4">
+        </video>
+      <% end %>
+    </div>
+  </div>
+
+  <!-- 解析結果セクション -->
+  <div class="analysis-section">
+    <h3>解析結果</h3>
     
-    <p>平均活動量: <%= sprintf("%.2f", @performance.average_activity) %></p>
-  <% else %>
-    <p>解析結果がありません</p>
-  <% end %>
+    <% if @video.analysis_status == "analyzing" %>
+      <div class="alert alert-info">
+        🔄 解析中です... 
+        <button onclick="location.reload()" class="btn btn-sm btn-outline-primary">更新</button>
+      </div>
+      <script>setTimeout(() => location.reload(), 10000);</script>
+    
+    <% elsif @video.analysis_status == "failed" %>
+      <div class="alert alert-danger">
+        ❌ 解析に失敗しました
+      </div>
+    
+    <% elsif @segment_activities.present? %>
+      <!-- 概要統計 -->
+      <div class="stats-summary">
+        <div class="stat-card">
+          <h4>平均活動量</h4>
+          <p class="stat-value"><%= sprintf("%.2f", @performance.average_activity) %></p>
+        </div>
+        <div class="stat-card">
+          <h4>セグメント数</h4>
+          <p class="stat-value"><%= @segment_activities.size %></p>
+        </div>
+        <div class="stat-card">
+          <h4>最大活動量</h4>
+          <p class="stat-value">
+            <%= sprintf("%.2f", @performance.activities.maximum(:value) || 0) %>
+          </p>
+        </div>
+      </div>
+
+      <!-- セグメント別テーブル -->
+      <div class="segment-table">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>セグメント</th>
+              <th>活動量</th>
+              <th>活動レベル</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @segment_activities.each do |segment, activities| %>
+              <% value = activities.first.value %>
+              <tr>
+                <td>セグメント <%= segment + 1 %></td>
+                <td><%= sprintf("%.2f", value) %></td>
+                <td>
+                  <div class="activity-bar">
+                    <div class="activity-fill" style="width: <%= [value * 20, 100].min %>%"></div>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- グラフ表示 -->
+      <div class="chart-container">
+        <h4>セグメント別活動量推移</h4>
+        <canvas id="activityChart" width="800" height="300"></canvas>
+      </div>
+
+      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      <script>
+        const ctx = document.getElementById('activityChart').getContext('2d');
+        const segmentData = <%= raw @segment_activities.transform_values { |acts| acts.first.value }.to_json %>;
+        
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: Object.keys(segmentData).map(s => `セグメント ${parseInt(s) + 1}`),
+            datasets: [{
+              label: '活動量',
+              data: Object.values(segmentData),
+              borderColor: 'rgb(75, 192, 192)',
+              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+              fill: true,
+              tension: 0.1
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: '活動量'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'セグメント'
+                }
+              }
+            }
+          }
+        });
+      </script>
+    <% else %>
+      <div class="alert alert-warning">
+        📊 解析結果がありません
+      </div>
+    <% end %>
+  </div>
 </div>
+
+<style>
+.performance-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.video-section {
+  margin-bottom: 3rem;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #007bff;
+  margin: 0;
+}
+
+.activity-bar {
+  width: 100%;
+  height: 20px;
+  background: #f0f0f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.activity-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
+  transition: width 0.3s ease;
+}
+
+.chart-container {
+  margin-top: 2rem;
+  padding: 1rem;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .video-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .performance-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+}
+</style>

@@ -1,6 +1,7 @@
 class Video < ApplicationRecord
   has_one_attached :video_content
   has_one_attached :video_thumbnail
+
   has_many :performances, dependent: :destroy
 
   validates :title, presence: true

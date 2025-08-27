@@ -88,6 +88,9 @@ frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 frame_baseline_limit = 10
 frame_skip = 100 # ここで何フレームごとに処理するか指定
 
+print(f"Processing every {frame_skip} frames", file=sys.stderr)
+print(f"Start frame: {start_frame}, End frame: {end_frame}", file=sys.stderr)
+
 for i in range(frame_count):
     ret, frame = cap.read()
     played_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
@@ -159,13 +162,14 @@ for i in range(frame_count):
         activity_average[ids] = activity_average[ids] + evaluation
 
         # Store results for averaging
-        if played_frame >= 415:
+        if played_frame >= start_frame + frame_baseline_limit:
             if ids not in analysis_results:
                 analysis_results[ids] = []
             analysis_results[ids].append(evaluation)
 
-        if played_frame >= start_frame+2:
-            print(f"Frame {played_frame-2}: Evaluation = {'{:.2f}'.format(evaluation)}, ID = {ids}")
+        # デバッグ出力: フレーム処理後に表示
+        if played_frame >= start_frame + 2:
+            print(f"Frame {played_frame}: Evaluation = {evaluation:.2f}, ID = {ids}", file=sys.stderr)
 
     # Update previous coordinates
     for id in baseline_ids:
