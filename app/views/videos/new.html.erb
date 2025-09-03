@@ -1,35 +1,152 @@
-<h1>動画のアップロード</h1>
+<div class="container mt-4">
+  <h1>動画のアップロード</h1>
 
-<%= link_to '動画一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
+  <%= link_to '動画一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
 
-<%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
-  <% if flash[:alert] %>
-    <div style="color: red;"><%= flash[:alert] %></div>
-  <% end %>
-
-  <% if flash[:notice] %>
-    <div style="color: green;"><%= flash[:notice] %></div>
-  <% end %>
-
-  <div class="field mb-3">
-    <%= form.label :title, "動画タイトル"%>
-    <%= form.text_field :title, class: "form-control", placeholder: "タイトルを入力してください"%>
-  </div>
-
-  <div class="field">
-    <p>動画ファイル</p>
-    <div id="drop-zone" class="drop-zone border rounded shadow p-5 text-center mb-3">
-      <%= form.file_field :video_content, accept: 'video/*', id: "file-input", class: "form-control d-none" %>
-    </div>
-  </div>
-
-  <div class="actions mt-3 text-center">
-    <%= form.submit "アップロード", id: "submit-button", class: "btn btn-primary btn-lg mt-3 d-none" %>
-  </div>
-  
-  <% if @images.present? %>
-    <% @images.each do |img_path| %>
-      <img src="<%= img_path %>" alt="face">
+  <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
+    <% if flash[:alert] %>
+      <div class="alert alert-danger"><%= flash[:alert] %></div>
     <% end %>
+
+    <% if flash[:notice] %>
+      <div class="alert alert-success"><%= flash[:notice] %></div>
+    <% end %>
+
+    <div class="field mb-3">
+      <%= form.label :title, "タイトル", class: "form-label" %>
+      <%= form.text_field :title, class: "form-control", placeholder: "タイトルを入力してください" %>
+    </div>
+
+    <div class="field mb-3">
+      <%= form.label :content, "動画ファイル", class: "form-label" %>
+      <%= form.file_field :content, accept: 'video/*', class: "form-control" %>
+    </div>
+
+    <div class="actions mt-3 text-center">
+      <%= form.submit "アップロード", class: "btn btn-primary btn-lg" %>
+    </div>
   <% end %>
-<% end %>
+
+  <!-- 顔検出結果と演者選択フォーム -->
+  <% if @detected_ids.present? && @video&.persisted? %>
+    <div class="detection-section mt-4">
+      <h3>検出された人数: <%= @detected_ids.size %>人</h3>
+      
+      <!-- サムネイル表示 -->
+      <% if @video.thumbnail.attached? %>
+        <div class="thumbnail-section mb-3">
+          <%= image_tag rails_blob_path(@video.thumbnail, disposition: "inline"), 
+                        alt: "動画のサムネイル", 
+                        class: "thumbnail-image",
+                        style: "max-width: 800px; height: auto; border: 1px solid #ccc; border-radius: 8px;" %>
+        </div>
+      <% end %>
+
+      <!-- 演者選択フォーム -->
+      <%= form_with url: assign_performers_video_path(@video), method: :post, local: true do |performer_form| %>
+        <div class="performer-assignments mt-3">
+          <h4>id と 演者を紐付けてください:</h4>
+          <div class="assignments-container">
+            <% @detected_ids.each_with_index do |detected_id, index| %>
+              <div class="assignment-row mb-3">
+                <label for="performer_assignments_<%= detected_id %>" class="form-label">
+                  <strong>検出ID <%= detected_id %></strong>:
+                </label>
+                <%= select_tag "performer_assignments[#{detected_id}]",
+                               options_from_collection_for_select(Performer.all, :id, :name, nil),
+                               { include_blank: "演者を選択してください", 
+                                 class: "form-select",
+                                 id: "performer_assignments_#{detected_id}" } %>
+              </div>
+            <% end %>
+          </div>
+          
+          <div class="form-actions mt-4 text-center">
+            <%= performer_form.submit "演者を紐付けて分析開始", class: "btn btn-success btn-lg" %>
+            <p class="text-muted small mt-2">演者の紐付け後、バックグラウンドで動画の詳細分析が開始されます</p>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+</div>
+
+<style>
+.detection-section {
+  border: 2px solid #28a745;
+  padding: 25px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+  box-shadow: 0 4px 6px rgba(40, 167, 69, 0.1);
+}
+
+.assignments-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.assignment-row label {
+  min-width: 140px;
+  font-weight: bold;
+  color: #495057;
+  margin-bottom: 0;
+}
+
+.form-select {
+  min-width: 250px;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.thumbnail-image {
+  display: block;
+  margin: 0 auto;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-preview {
+  border: 1px solid #e0e0e0;
+  padding: 20px;
+  border-radius: 8px;
+  background-color: #fafafa;
+}
+
+.images-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 15px;
+}
+
+.face-image {
+  text-align: center;
+}
+
+.detected-face {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #007bff;
+}
+
+.detected-face + p {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #666;
+}
+</style>
+

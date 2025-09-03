@@ -1,174 +1,169 @@
-<div class="container">
-  <div class="performance-header">
-    <h1>パフォーマンス詳細</h1>
-    <div class="actions">
-      <%= link_to "編集", edit_performance_path(@performance), class: "btn btn-primary" %>
-      <%= link_to "一覧に戻る", performances_path, class: "btn btn-secondary" %>
+<!-- app/views/performances/show.html.erb -->
+<div class="container mt-4">
+  <div class="performance-header mb-4">
+    <h1><%= @performance.performer.name %> の活動量</h1>
+    <div class="performance-info">
+      <span class="text-muted">動画: <%= link_to @video.title, @video %></span>
+      <span class="text-muted ms-3">日付: <%= @performance.date %></span>
     </div>
   </div>
 
-  <!-- 動画情報セクション -->
-  <div class="video-section">
-    <div class="video-info">
-      <h2><%= @video.title %></h2>
-      <p>解析状況: <span class="status-<%= @video.analysis_status %>"><%= @video.analysis_status.capitalize %></span></p>
-      <p>演者: <%= @performance.performer&.name || "未設定" %></p>
-      <p>日付: <%= @performance.date %></p>
-    </div>
-
-    <!-- 動画プレイヤー -->
-    <div class="video-player">
-      <% if @video.video_content.attached? %>
-        <video controls width="100%" style="max-width: 800px;">
-          <source src="<%= @video.video_content_url %>" type="video/mp4">
+  <!-- 動画プレイヤー -->
+  <div class="video-section mb-4">
+    <% if @video.content.attached? %>
+      <div class="video-container">
+        <video controls width="100%" style="max-width: 800px;" class="rounded shadow">
+          <source src="<%= rails_blob_path(@video.content, disposition: "inline") %>" type="video/mp4">
         </video>
-      <% end %>
-    </div>
-  </div>
-
-  <!-- 解析結果セクション -->
-  <div class="analysis-section">
-    <h3>解析結果</h3>
-    
-    <% if @video.analysis_status == "analyzing" %>
-      <div class="alert alert-info">
-        🔄 解析中です... 
-        <button onclick="location.reload()" class="btn btn-sm btn-outline-primary">更新</button>
-      </div>
-      <script>setTimeout(() => location.reload(), 10000);</script>
-    
-    <% elsif @video.analysis_status == "failed" %>
-      <div class="alert alert-danger">
-        ❌ 解析に失敗しました
-      </div>
-    
-    <% elsif @segment_activities.present? %>
-      <!-- 概要統計 -->
-      <div class="stats-summary">
-        <div class="stat-card">
-          <h4>平均活動量</h4>
-          <p class="stat-value"><%= sprintf("%.2f", @performance.average_activity) %></p>
-        </div>
-        <div class="stat-card">
-          <h4>セグメント数</h4>
-          <p class="stat-value"><%= @segment_activities.size %></p>
-        </div>
-        <div class="stat-card">
-          <h4>最大活動量</h4>
-          <p class="stat-value">
-            <%= sprintf("%.2f", @performance.activities.maximum(:value) || 0) %>
-          </p>
-        </div>
-      </div>
-
-      <!-- セグメント別テーブル -->
-      <div class="segment-table">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>セグメント</th>
-              <th>活動量</th>
-              <th>活動レベル</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% @segment_activities.each do |segment, activities| %>
-              <% value = activities.first.value %>
-              <tr>
-                <td>セグメント <%= segment + 1 %></td>
-                <td><%= sprintf("%.2f", value) %></td>
-                <td>
-                  <div class="activity-bar">
-                    <div class="activity-fill" style="width: <%= [value * 20, 100].min %>%"></div>
-                  </div>
-                </td>
-              </tr>
-            <% end %>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- グラフ表示 -->
-      <div class="chart-container">
-        <h4>セグメント別活動量推移</h4>
-        <canvas id="activityChart" width="800" height="300"></canvas>
-      </div>
-
-      <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-      <script>
-        const ctx = document.getElementById('activityChart').getContext('2d');
-        const segmentData = <%= raw @segment_activities.transform_values { |acts| acts.first.value }.to_json %>;
-        
-        new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: Object.keys(segmentData).map(s => `セグメント ${parseInt(s) + 1}`),
-            datasets: [{
-              label: '活動量',
-              data: Object.values(segmentData),
-              borderColor: 'rgb(75, 192, 192)',
-              backgroundColor: 'rgba(75, 192, 192, 0.2)',
-              fill: true,
-              tension: 0.1
-            }]
-          },
-          options: {
-            responsive: true,
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: '活動量'
-                }
-              },
-              x: {
-                title: {
-                  display: true,
-                  text: 'セグメント'
-                }
-              }
-            }
-          }
-        });
-      </script>
-    <% else %>
-      <div class="alert alert-warning">
-        📊 解析結果がありません
       </div>
     <% end %>
   </div>
+
+  <!-- 統計サマリー -->
+  <div class="stats-summary mb-4">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="stat-card">
+          <h4>平均活動量</h4>
+          <p class="stat-value"><%= sprintf("%.2f", @activity_data[:average]) %></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 運動種目別詳細 -->
+ <div class="segment-details mb-4">
+    <h1 class="activity-title">運動種目別活動量</h1>
+    
+    <!-- テーブル表示 -->
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th style="width: 70%;">運動種目</th>
+            <th style="width: 30%;">活動量</th>
+          </tr>
+        </thead>
+        <tbody>
+        <% @segment_activities.each do |category, activities| %>
+          <% value = activities.first.value %>
+          <% exercise_name = @activity_types[category] || "不明な運動 #{category + 1}" %>
+          <tr>
+            <td><strong><%= exercise_name %></strong></td>
+            <td><%= sprintf("%.2f", value) %></td>
+          </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- グラフ表示 -->
+    <div class="chart-container mt-4">
+      <canvas id="activityChart" width="800" height="400"></canvas>
+    </div>
+  </div>
+
+  <!-- ナビゲーション -->
+  <div class="actions">
+    <% if @video %>
+      <%= link_to '動画に戻る', @video, class: 'btn btn-secondary' %>
+    <% end %>
+    <%= link_to '編集', edit_performance_path(@performance), class: 'btn btn-outline-primary ms-2' %>
+    <%= link_to 'パフォーマンス一覧', performances_path, class: 'btn btn-outline-secondary ms-2' %>
+  </div>
 </div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const ctx = document.getElementById('activityChart').getContext('2d');
+  const activityData = <%= raw @activity_data[:activities].map(&:value).to_json %>;
+  const exerciseNames = <%= raw @activity_data[:activities].map { |a| @activity_types[a.category] || "不明な運動 #{a.category + 1}" }.to_json %>;
+  
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: exerciseNames,
+      datasets: [{
+        label: '活動量',
+        data: activityData,
+        backgroundColor: 'rgba(54, 162, 235, 0.8)',
+        borderColor: 'rgba(54, 162, 235, 1)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        title: {
+          display: true,
+          text: 'グラフ',
+          font: {
+            size: 16,
+            weight: 'bold'
+          }
+        },
+        legend: {
+          display: false
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: '活動量',
+            font: {
+              weight: 'bold'
+            }
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: '運動種目',
+            font: {
+              weight: 'bold'
+            }
+          },
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0
+          }
+        }
+      },
+      interaction: {
+        intersect: false,
+        mode: 'index'
+      }
+    }
+  });
+</script>
 
 <style>
 .performance-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 1rem;
 }
 
-.video-section {
-  margin-bottom: 3rem;
-  display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 2rem;
-  align-items: start;
+.performance-info {
+  margin-top: 0.5rem;
 }
 
-.stats-summary {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
+.video-container {
+  text-align: center;
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 10px;
 }
 
 .stat-card {
   background: white;
-  padding: 1rem;
+  padding: 1.5rem;
   border: 1px solid #ddd;
   border-radius: 8px;
   text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .stat-value {
@@ -178,37 +173,22 @@
   margin: 0;
 }
 
-.activity-bar {
-  width: 100%;
-  height: 20px;
-  background: #f0f0f0;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.activity-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
-  transition: width 0.3s ease;
-}
-
 .chart-container {
-  margin-top: 2rem;
-  padding: 1rem;
   background: white;
+  padding: 2rem;
   border: 1px solid #ddd;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
-@media (max-width: 768px) {
-  .video-section {
-    grid-template-columns: 1fr;
-  }
-  
-  .performance-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
-  }
+.actions {
+  text-align: center;
+  padding: 2rem 0;
+  border-top: 2px solid #e9ecef;
+}
+
+/* テーブルの運動名を太字にする */
+.table td:first-child {
+  font-weight: 600;
+  color: #495057;
 }
 </style>

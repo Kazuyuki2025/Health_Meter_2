@@ -29,7 +29,6 @@ class VideoUploadService
 
     if video.save
       analyze_first_frame
-      start_video_analysis
       success
     else
       failure("動画の保存に失敗しました: #{video.errors.full_messages.join(', ')}")
@@ -53,7 +52,7 @@ class VideoUploadService
       transcoded = true
     end
 
-    video.video_content.attach(
+    video.content.attach(
       io: File.open(attach_source_path),
       filename: uploaded_file.original_filename,
       content_type: "video/mp4"
@@ -63,7 +62,7 @@ class VideoUploadService
   end
 
   def analyze_first_frame
-    video_path = ActiveStorage::Blob.service.send(:path_for, video.video_content.key)
+    video_path = ActiveStorage::Blob.service.send(:path_for, video.content.key)
     script_path = Rails.root.join("app/controllers/python/extract_frames.py")
 
     # Pythonスクリプトは生成したサムネイルのパスを返すようにする
@@ -95,7 +94,7 @@ class VideoUploadService
   def attach_thumbnail_file(file_path)
     return unless File.exist?(file_path)
 
-    video.video_thumbnail.attach(
+    video.thumbnail.attach(
       io: File.open(file_path),
       filename: File.basename(file_path),
       content_type: "image/jpeg"
@@ -108,13 +107,8 @@ class VideoUploadService
   end
 
   def get_generated_images
-    return [] unless video.video_thumbnail.attached?
+    return [] unless video.thumbnail.attached?
     [ video.thumbnail_url ]
-  end
-
-  def start_video_analysis
-    Rails.logger.info "\n\n\n\n動画解析開始\n\n\n\n"
-    DetectVideoJob.perform_later(video.id)
   end
 
   def success

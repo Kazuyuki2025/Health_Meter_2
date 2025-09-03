@@ -1,2 +1,173 @@
-<h1>Performers#show</h1>
-<p>Find me in app/views/performers/show.html.erb</p>
+<div class="container mt-4">
+  <div class="performer-header mb-4">
+    <h1><%= @performer.name %> の活動履歴</h1>
+  </div>
+
+  <!-- パフォーマンス一覧 -->
+  <div class="performances-list">
+    <h3>パフォーマンス履歴</h3>
+    <% if @performance_data.any? %>
+      <div class="performance-cards">
+        <% @performance_data.each do |data| %>
+          <div class="performance-card">
+            <div class="card-header">
+              <h4><%= link_to data[:video_title], video_performance_path(data[:performance].video, data[:performance]), class: "video-link" %></h4>
+              <small class="text-muted">日付: <%= data[:date] %></small>
+            </div>
+            
+            <div class="performance-stats">
+              <div class="stat-row">
+                <span>平均活動量:</span>
+                <strong><%= sprintf("%.2f", data[:average]) %></strong>
+              </div>
+              <div class="stat-row">
+                <span>運動種目数:</span>
+                <span><%= data[:total_segments] %></span>
+              </div>
+            </div>
+
+            <!-- 運動種目別活動量（簡易表示） -->
+            <div class="activities-preview">
+              <h6>運動種目別活動量（上位5種目）</h6>
+              <div class="activities-mini-table">
+                <% data[:activities].order(value: :desc).limit(5).each do |activity| %>
+                  <div class="activity-mini-row">
+                    <span class="exercise-name">
+                      <%= @activity_types[activity.category] || "運動#{activity.category + 1}" %>
+                    </span>
+                    <span class="activity-value"><%= sprintf("%.2f", activity.value) %></span>
+                  </div>
+                <% end %>
+              </div>
+              
+              <div class="card-actions mt-2">
+                <%= link_to "詳細を見る", video_performance_path(data[:performance].video, data[:performance]), 
+                    class: "btn btn-sm btn-primary" %>
+              </div>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <div class="empty-state">
+        <p>この演者にはまだパフォーマンスデータがありません。</p>
+        <%= link_to "動画をアップロード", new_video_path, class: "btn btn-primary" %>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- ナビゲーション -->
+  <div class="actions mt-4">
+    <%= link_to '演者一覧に戻る', performers_path, class: 'btn btn-secondary' %>
+    <%= link_to '編集', edit_performer_path(@performer), class: 'btn btn-outline-primary ms-2' %>
+  </div>
+</div>
+
+<style>
+.performer-header {
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 1rem;
+}
+
+.performer-info {
+  margin-top: 0.5rem;
+}
+
+.performance-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.performance-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-header {
+  border-bottom: 1px solid #e9ecef;
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.card-header h4 {
+  margin: 0 0 0.5rem 0;
+}
+
+.video-link {
+  color: #007bff;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.video-link:hover {
+  text-decoration: underline;
+  color: #0056b3;
+}
+
+.performance-stats {
+  margin-bottom: 1rem;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.activities-preview {
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 6px;
+}
+
+.activities-preview h6 {
+  margin-bottom: 0.5rem;
+  color: #495057;
+}
+
+.activities-mini-table {
+  margin-bottom: 1rem;
+}
+
+.activity-mini-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.exercise-name {
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.activity-value {
+  font-weight: bold;
+  color: #007bff;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  color: #6c757d;
+}
+
+.actions {
+  text-align: center;
+  padding: 2rem 0;
+  border-top: 2px solid #e9ecef;
+}
+
+@media (max-width: 768px) {
+  .performance-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

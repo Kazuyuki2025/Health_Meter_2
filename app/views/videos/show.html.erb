@@ -1,17 +1,300 @@
 <div class="container mt-4">
-  <h1><%= @video.id %></h1>
+  <div class="video-header mb-4">
+    <h1><%= @video.title %></h1>
+    <div class="video-info">
+      <span class="text-muted ms-2">アップロード日: <%= @video.created_at.strftime("%Y年%m月%d日 %H:%M") %></span>
+    </div>
+  </div>
+  
+  <!-- 動画プレイヤー -->
+  <div class="video-section mb-4">
+    <% if @video.content.attached? %>
+      <div class="video-container">
+        <video controls width="100%" style="max-width: 800px;" class="rounded shadow">
+          <source src="<%= rails_blob_path(@video.content, disposition: "inline") %>" type="video/mp4">
+        </video>
+      </div>
+    <% end %>
+  </div>
 
-  <% if @video.video_content.attached? %>
-    <%= video_tag rails_blob_path(@video.video_content), 
-        controls: true, 
-        class: "img-fluid", 
-        style: "max-width: 100%; height: auto;"
-     %>
-  <% else %>
-    <p>動画が添付されていません。</p>
+  <!-- 解析状況表示 -->
+  <% if @video.analysis_status == 'pending' || @video.analysis_status == 'analyzing' %>
+    <div class="analysis-status-section mb-4">
+      <div class="alert alert-info">
+        <h4><i class="fas fa-clock"></i> 解析状況</h4>
+        <% if @video.analysis_status == 'pending' %>
+          <p>解析待ちです。演者の紐付けが完了すると解析が開始されます。</p>
+        <% else %>
+          <p>現在解析中です。しばらくお待ちください...</p>
+          <div class="spinner-border spinner-border-sm" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+        <% end %>
+      </div>
+    </div>
   <% end %>
 
-  <div class="mt-3">
-    <%= link_to '一覧に戻る', videos_path, class: 'btn btn-secondary' %>
+  <!-- 解析完了時の結果表示 -->
+  <% if @video.analysis_status == 'completed' && @activity_data.any? %>
+    <div class="analysis-results">
+      <!-- 全体統計 -->
+      <div class="overall-stats mb-4">
+        <h3><i class="fas fa-chart-line"></i> 動画情報</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value"><%= @overall_stats[:total_performers] %></div>
+            <div class="stat-label">出演者数</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value"><%= sprintf("%.2f", @overall_stats[:overall_average]) %></div>
+            <div class="stat-label">平均活動量</div>
+          </div>
+        </div>
+      </div>
+
+    <h3 class="mb-4"><i class="fas fa-users"></i> 出演者一覧</h3>
+    <div class="row">
+      <% @detected_ids.each_with_index do |detected_id, index| %>
+        <% data = @activity_data[index] rescue nil %>
+        <% performer = data[:performer] if data %>
+        <% performance_id = data[:performance_id] if data %>
+
+        <div class="col-md-6 mb-3">
+           <div class="p-2 border rounded shadow-sm" style="font-size: 1.5rem; display: inline-flex; gap: 1.0rem; align-items: center;">
+            <span><strong>ID: <%= index + 1 %></strong></span>
+            <span class="performer-name">
+              <% if performer %>
+                <%= link_to performer.name, video_performance_path(@video, performance_id), class: "performer-link" %>
+              <% else %>
+                <span class="text-muted">未割り当て</span>
+              <% end %>
+            </span>
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+  <% elsif @video.analysis_status == 'completed' && @activity_data.empty? %>
+    <div class="alert alert-warning">
+      <h4><i class="fas fa-exclamation-triangle"></i> 解析完了</h4>
+      <p>解析は完了しましたが、活動量データが見つかりません。</p>
+    </div>
+  <% end %>
+
+  <!-- ナビゲーション -->
+  <div class="actions mt-4">
+    <%= link_to '動画一覧へ戻る', videos_path, class: 'btn btn-secondary' %>
+    <%= link_to '編集', edit_video_path(@video), class: 'btn btn-outline-primary ms-2' %>
   </div>
 </div>
+
+<style>
+.performer-name-link {
+  color: #007bff !important;
+  font-weight: 600;
+  transition: color 0.2s ease;
+}
+
+.performer-name-link:hover {
+  color: #0056b3 !important;
+  text-decoration: underline !important;
+}
+
+.performer-header h4 {
+  margin: 0;
+}
+
+.video-header {
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 1rem;
+}
+
+.video-info {
+  display: flex;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
+.video-container {
+  text-align: center;
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 10px;
+}
+
+.analysis-status-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 10px;
+  padding: 1.5rem;
+}
+
+.detection-preview {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.thumbnail-image {
+  display: block;
+  margin: 1rem auto 0;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.overall-stats {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 2rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: white;
+  text-align: center;
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,123,255,0.25);
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+.performers-results {
+  background: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 10px;
+  padding: 2rem;
+}
+
+.performer-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 2rem;
+  margin-top: 1.5rem;
+}
+
+.performer-card {
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.performer-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.performer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.performer-header h4 {
+  margin: 0;
+  color: #495057;
+}
+
+.performer-stats {
+  margin: 1rem 0;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.stat-name {
+  color: #6c757d;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  color: #495057;
+  font-weight: 500;
+}
+
+.activity-chart {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.activity-chart h6 {
+  margin-bottom: 0.5rem;
+  color: #495057;
+  font-size: 0.9rem;
+}
+
+.activity-bar-chart {
+  display: flex;
+  align-items: flex-end;
+  height: 80px;
+  gap: 2px;
+  overflow-x: auto;
+  padding: 0.5rem 0;
+}
+
+.bar {
+  background: linear-gradient(0deg, #28a745, #20c997);
+  width: 8px;
+  min-height: 3px;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.bar:hover {
+  background: linear-gradient(0deg, #dc3545, #fd7e14);
+  transform: scaleY(1.1);
+}
+
+.performer-actions {
+  text-align: center;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+}
+
+.actions {
+  text-align: center;
+  padding: 2rem 0;
+  border-top: 2px solid #e9ecef;
+}
+
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .performer-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+  }
+}
+</style>

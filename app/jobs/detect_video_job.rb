@@ -7,6 +7,12 @@ class DetectVideoJob < ApplicationJob
   def perform(video_id)
     video = Video.find(video_id)
 
+    unless video.performances.exists?
+      Rails.logger.error "演者の紐付けが完了していません: video_id=#{video_id}"
+      video.update!(analysis_status: "failed")
+      return
+    end
+
     if Video.where(analysis_status: "analyzing").where.not(id: video.id).exists?
       Rails.logger.info "他の動画が解析中です。2分後に再実行します。"
       self.class.set(wait: 2.minutes).perform_later(video_id)
@@ -16,7 +22,7 @@ class DetectVideoJob < ApplicationJob
     video.update!(analysis_status: "analyzing")
 
     begin
-      video_path = ActiveStorage::Blob.service.send(:path_for, video.video_content.key)
+      video_path = ActiveStorage::Blob.service.send(:path_for, video.content.key)
       script_path = Rails.root.join("app/controllers/python/detect_video.py")
 
       Rails.logger.info "DetectVideoJob 実行開始"
@@ -59,16 +65,20 @@ class DetectVideoJob < ApplicationJob
   private
 
   def save_to_activities(video, data)
-    # 既存のActivityデータを削除（再解析時のため）
-    video.performances.each { |p| p.activities.destroy_all }
+  # 既存のActivityデータを削除（再解析時のため）
+  video.performances.each { |p| p.activities.destroy_all }
 
-    averaged_results = data["averaged_results"] || {}
+  averaged_results = data["averaged_results"] || {}
+  existing_performances = video.performances.includes(:performer).to_a
 
-    averaged_results.each do |person_id, segment_values|
-      # Performanceレコードを作成または取得
-      performance = video.performances.find_or_create_by!(
-        performer_id: 1
-      ) { |p| p.date = Date.current.to_s }
+  averaged_results.each_with_index do |(person_id, segment_values), index|
+    # 既存のPerformanceを使用（演者は既に紐付け済み）
+    performance = existing_performances[index]
+
+    if performance.nil?
+      Rails.logger.warn "Performance not found for person_id: #{person_id}"
+      next
+    end
 
       # 各セグメントの値をActivityとして保存
       segment_values.each_with_index do |value, segment_index|

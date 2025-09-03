@@ -1,6 +1,13 @@
 Rails.application.routes.draw do
-  resources :videos
+  resources :videos do
+    member do
+      post :assign_performers
+    end
+    resources :performances, only: [ :show, :edit, :update ]
+  end
+
   resources :performers
   resources :performances
-  root "performers#index"
+
+  root "videos#index"
 end

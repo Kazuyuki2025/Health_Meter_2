@@ -13,8 +13,18 @@ class Video < ApplicationRecord
     failed: "failed"
   }, validate: true
 
+  def get_all_activities
+    performances.includes(:activities, :performer).map do |performance|
+      {
+        performer: performance.performer,
+        activities: performance.activities.order(:category),
+        average: performance.average_activity
+      }
+    end
+  end
+
   def thumbnail_url
-    return nil unless video_thumbnail.attached?
-      Rails.application.routes.url_helpers.rails_blob_path(video_thumbnail, only_path: true)
+    return nil unless thumbnail.attached?
+      Rails.application.routes.url_helpers.rails_blob_path(thumbnail, only_path: true)
   end
 end
