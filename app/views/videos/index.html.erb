@@ -1,61 +1,83 @@
 <div class="container mt-4">
   <h1>動画一覧</h1>
 
+  <div class="action-buttons mt-4">
+    <%= link_to '新規作成（動画アップロード）', new_video_path, class: "btn btn-primary" %>
+    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary ms-2' %>
+    <%= link_to 'パフォーマンス一覧', performances_path, class: 'btn btn-outline-secondary ms-2' %>
+  </div>
+</div>
+
   <% if @videos.any? %>
     <div class="video-list">
       <% @videos.each do |video| %>
         <div class="video-item mb-4 p-3 border rounded">
-          <div class="video-header d-flex justify-content-between align-items-start">
-            <div class="video-info">
-              <h4><%= link_to video.title, video_path(video), class: "text-decoration-none" %></h4>
-              <div class="video-meta mt-2">
-                <span class="badge bg-<%= status_color(video.analysis_status) %>">
-                  <i class="fas fa-<%= status_icon(video.analysis_status) %>"></i>
-                  <%= status_text(video.analysis_status) %>
-                </span>
-                <small class="text-muted ms-2">
-                  <%= video.created_at.strftime("%Y年%m月%d日 %H:%M") %>
-                </small>
+          <div class="video-thumbnail mb-3">
+            <% if video.thumbnail.attached? %>
+              <%= link_to video_path(video) do %>
+                <%= image_tag video.thumbnail, class: "thumbnail-img", alt: video.title %>
+              <% end %>
+            <% else %>
+              <%= link_to video_path(video) do %>
+                <div class="no-thumbnail d-flex align-items-center justify-content-center">
+                  <i class="fas fa-video text-muted"></i>
+                </div>
+              <% end %>
+            <% end %>
+          </div>
+          
+          <div class="video-content">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+              <div class="video-info flex-grow-1">
+                <h4><%= link_to video.title, video_path(video), class: "text-decoration-none" %></h4>
+                <div class="video-meta mt-2">
+                  <span class="badge bg-<%= status_color(video.analysis_status) %>">
+                    <i class="fas fa-<%= status_icon(video.analysis_status) %>"></i>
+                    <%= status_text(video.analysis_status) %>
+                  </span>
+                  <small class="text-muted ms-2">
+                    <%= video.created_at.strftime("%Y年%m月%d日 %H:%M") %>
+                  </small>
+                </div>
+              </div>
+              
+              <div class="video-actions">
+                <%= link_to "編集", edit_video_path(video), class: "btn btn-secondary btn-sm" %>
+                <%= button_to "削除", 
+                    video_path(video), 
+                    method: :delete,
+                    class: "btn btn-danger btn-sm",
+                    data: { turbo_confirm: "本当に削除しますか？" } %>
               </div>
             </div>
             
-            <div class="video-actions">
-              <%= link_to "詳細", video_path(video), class: "btn btn-outline-primary btn-sm" %>
-              <%= link_to "編集", edit_video_path(video), class: "btn btn-secondary btn-sm" %>
-              <%= button_to "削除", 
-                  video_path(video), 
-                  method: :delete,
-                  class: "btn btn-danger btn-sm",
-                  data: { turbo_confirm: "本当に削除しますか？" } %>
+            <!-- 詳細情報 -->
+            <div class="video-details">
+              <% case video.analysis_status %>
+              <% when 'pending' %>
+                <p class="text-muted mb-0">
+                  <i class="fas fa-clock"></i> 
+                  演者の紐付けが完了すると解析が開始されます
+                </p>
+              <% when 'analyzing' %>
+                <p class="text-warning mb-0">
+                  <i class="fas fa-spinner fa-spin"></i> 
+                  現在解析中です...
+                </p>
+              <% when 'completed' %>
+                <p class="text-success mb-0">
+                  <i class="fas fa-check-circle"></i> 
+                  解析完了 - 
+                  <% performer_count = video.performances.count %>
+                  <%= performer_count %>名の演者が検出されました
+                </p>
+              <% when 'failed' %>
+                <p class="text-danger mb-0">
+                  <i class="fas fa-exclamation-triangle"></i> 
+                  解析に失敗しました
+                </p>
+              <% end %>
             </div>
-          </div>
-          
-          <!-- 詳細情報 -->
-          <div class="video-details mt-3">
-            <% case video.analysis_status %>
-            <% when 'pending' %>
-              <p class="text-muted mb-0">
-                <i class="fas fa-clock"></i> 
-                演者の紐付けが完了すると解析が開始されます
-              </p>
-            <% when 'analyzing' %>
-              <p class="text-warning mb-0">
-                <i class="fas fa-spinner fa-spin"></i> 
-                現在解析中です...
-              </p>
-            <% when 'completed' %>
-              <p class="text-success mb-0">
-                <i class="fas fa-check-circle"></i> 
-                解析完了 - 
-                <% performer_count = video.performances.count %>
-                <%= performer_count %>名の演者が検出されました
-              </p>
-            <% when 'failed' %>
-              <p class="text-danger mb-0">
-                <i class="fas fa-exclamation-triangle"></i> 
-                解析に失敗しました
-              </p>
-            <% end %>
           </div>
         </div>
       <% end %>
@@ -88,12 +110,59 @@
   transform: translateY(-2px);
 }
 
-.video-header h4 a {
-  color: #495057;
-  font-weight: 600;
+.video-thumbnail {
+  text-align: left;
+  width: 100%;
 }
 
-.video-header h4 a:hover {
+.thumbnail-img {
+  width: 100%;
+  max-width: 400px;
+  height: 225px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.thumbnail-img:hover {
+  border-color: #007bff;
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0,123,255,0.2);
+}
+
+.no-thumbnail {
+  width: 100%;
+  max-width: 400px;
+  height: 225px;
+  background: #f8f9fa;
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  margin: 0;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.no-thumbnail:hover {
+  border-color: #007bff;
+  background: #e3f2fd;
+  transform: scale(1.02);
+}
+
+.no-thumbnail i {
+  font-size: 4rem;
+  color: #adb5bd;
+}
+
+.video-content h4 a {
+  color: #495057;
+  font-weight: 600;
+  font-size: 1.5rem;
+}
+
+.video-content h4 a:hover {
   color: #007bff;
 }
 
@@ -110,13 +179,26 @@
 }
 
 @media (max-width: 768px) {
-  .video-header {
-    flex-direction: column;
-    gap: 1rem;
+  .thumbnail-img, .no-thumbnail {
+    height: 180px;
+  }
+  
+  .video-content h4 a {
+    font-size: 1.3rem;
   }
   
   .video-actions {
-    justify-content: flex-start;
+    flex-direction: column;
+    width: 100%;
+    margin-top: 1rem;
+  }
+  
+  .video-info {
+    margin-bottom: 1rem;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column;
   }
 }
 </style>
