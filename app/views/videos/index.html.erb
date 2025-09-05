@@ -1,28 +1,122 @@
-<h1>動画一覧</h1>
+<div class="container mt-4">
+  <h1>動画一覧</h1>
 
-<ul class="list-unstyled">
-  <% @videos.each do |video| %>
-    <li class="mb-3">
-      <div class="d-flex gap-2">
-      <%= link_to video.title, video_path(video), class: "btn btn-outline-primary me-2" %>
-
-      <div class="d-flex gap-2 mt-2">
-      <%= link_to "編集", 
-          edit_video_path(video), 
-          class: "btn btn-secondary btn-sm" %>
-        <%= button_to "削除", 
-          video_path(video), 
-          method: :delete,
-          class: "btn btn-danger btn-sm",
-          data: { turbo_confirm: "本当に削除しますか？" } %>
+  <% if @videos.any? %>
+    <div class="video-list">
+      <% @videos.each do |video| %>
+        <div class="video-item mb-4 p-3 border rounded">
+          <div class="video-header d-flex justify-content-between align-items-start">
+            <div class="video-info">
+              <h4><%= link_to video.title, video_path(video), class: "text-decoration-none" %></h4>
+              <div class="video-meta mt-2">
+                <span class="badge bg-<%= status_color(video.analysis_status) %>">
+                  <i class="fas fa-<%= status_icon(video.analysis_status) %>"></i>
+                  <%= status_text(video.analysis_status) %>
+                </span>
+                <small class="text-muted ms-2">
+                  <%= video.created_at.strftime("%Y年%m月%d日 %H:%M") %>
+                </small>
+              </div>
+            </div>
+            
+            <div class="video-actions">
+              <%= link_to "詳細", video_path(video), class: "btn btn-outline-primary btn-sm" %>
+              <%= link_to "編集", edit_video_path(video), class: "btn btn-secondary btn-sm" %>
+              <%= button_to "削除", 
+                  video_path(video), 
+                  method: :delete,
+                  class: "btn btn-danger btn-sm",
+                  data: { turbo_confirm: "本当に削除しますか？" } %>
+            </div>
           </div>
-      </div>
-    </li>
+          
+          <!-- 詳細情報 -->
+          <div class="video-details mt-3">
+            <% case video.analysis_status %>
+            <% when 'pending' %>
+              <p class="text-muted mb-0">
+                <i class="fas fa-clock"></i> 
+                演者の紐付けが完了すると解析が開始されます
+              </p>
+            <% when 'analyzing' %>
+              <p class="text-warning mb-0">
+                <i class="fas fa-spinner fa-spin"></i> 
+                現在解析中です...
+              </p>
+            <% when 'completed' %>
+              <p class="text-success mb-0">
+                <i class="fas fa-check-circle"></i> 
+                解析完了 - 
+                <% performer_count = video.performances.count %>
+                <%= performer_count %>名の演者が検出されました
+              </p>
+            <% when 'failed' %>
+              <p class="text-danger mb-0">
+                <i class="fas fa-exclamation-triangle"></i> 
+                解析に失敗しました
+              </p>
+            <% end %>
+          </div>
+        </div>
+      <% end %>
+    </div>
+  <% else %>
+    <div class="alert alert-info">
+      <h4><i class="fas fa-info-circle"></i> 動画がありません</h4>
+      <p>まだ動画がアップロードされていません。</p>
+    </div>
   <% end %>
-</ul>
 
-
-<%= link_to '新規作成（動画アップロード）', new_video_path, class: "btn btn-primary" %>
-<div class="mt-3">
-  <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary' %>
+  <!-- アクションボタン -->
+  <div class="action-buttons mt-4">
+    <%= link_to '新規作成（動画アップロード）', new_video_path, class: "btn btn-primary" %>
+    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary ms-2' %>
+    <%= link_to 'パフォーマンス一覧', performances_path, class: 'btn btn-outline-secondary ms-2' %>
+  </div>
 </div>
+
+<style>
+.video-item {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border: 1px solid #e9ecef !important;
+  transition: all 0.3s ease;
+}
+
+.video-item:hover {
+  border-color: #007bff !important;
+  box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+  transform: translateY(-2px);
+}
+
+.video-header h4 a {
+  color: #495057;
+  font-weight: 600;
+}
+
+.video-header h4 a:hover {
+  color: #007bff;
+}
+
+.video-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.action-buttons {
+  text-align: center;
+  padding: 2rem 0;
+  border-top: 2px solid #e9ecef;
+}
+
+@media (max-width: 768px) {
+  .video-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .video-actions {
+    justify-content: flex-start;
+  }
+}
+</style>

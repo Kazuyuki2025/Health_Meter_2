@@ -45,10 +45,6 @@
             <div class="stat-value"><%= @overall_stats[:total_performers] %></div>
             <div class="stat-label">出演者数</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-value"><%= sprintf("%.2f", @overall_stats[:overall_average]) %></div>
-            <div class="stat-label">平均活動量</div>
-          </div>
         </div>
       </div>
 
@@ -155,7 +151,7 @@
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  background: linear-gradient(135deg, #e9ecf0ff 0%, #0056b3 100%);
   color: white;
   text-align: center;
   padding: 1.5rem;

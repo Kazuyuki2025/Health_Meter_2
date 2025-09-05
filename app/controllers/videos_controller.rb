@@ -33,17 +33,9 @@ class VideosController < ApplicationController
 
     if params[:performer_assignments].present?
       params[:performer_assignments].each do |detected_id, performer_id|
-        next if performer_id.blank?
+      @video.assign_performer(detected_id, performer_id)
+    end
 
-        # Performanceを作成または更新
-        @video.performances.find_or_create_by(
-          performer_id: performer_id
-        ) do |p|
-          p.date = Date.current.to_s
-        end
-      end
-
-      # 演者紐付け完了後、詳細分析を開始
       @video.update(analysis_status: :analyzing)
       DetectVideoJob.perform_later(@video.id)
 
