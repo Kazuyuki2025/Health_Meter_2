@@ -8,7 +8,7 @@
   
   <!-- 動画プレイヤー -->
   <div class="video-section mb-4">
-    <% if @video.content.attached? %>
+    <% if @video.content.attached? && @video.analysis_status == 'completed' %>
       <div class="video-container">
         <video controls width="100%" style="max-width: 800px;" class="rounded shadow">
           <source src="<%= rails_blob_path(@video.content, disposition: "inline") %>" type="video/mp4">
@@ -31,6 +31,49 @@
           </div>
         <% end %>
       </div>
+    </div>
+  <% end %>
+
+  <!-- 再解析後の顔検出結果と演者選択フォーム -->
+  <% if @detected_ids.present? && @video.analysis_status == 'pending' %>
+    <div class="detection-section mt-4 mb-4">
+      <h3>検出された人数: <%= @detected_ids.size %>人</h3>
+      
+      <!-- サムネイル表示 -->
+      <% if @video.thumbnail.attached? %>
+        <div class="thumbnail-section mb-3">
+          <%= image_tag rails_blob_path(@video.thumbnail, disposition: "inline"), 
+                        alt: "動画のサムネイル", 
+                        class: "thumbnail-image",
+                        style: "max-width: 800px; height: auto; border: 1px solid #ccc; border-radius: 8px;" %>
+        </div>
+      <% end %>
+
+      <!-- 演者選択フォーム -->
+      <%= form_with url: assign_performers_video_path(@video), method: :post, local: true do |performer_form| %>
+        <div class="performer-assignments mt-3">
+          <h4>id と 演者を紐付けてください:</h4>
+          <div class="assignments-container">
+            <% @detected_ids.each_with_index do |detected_id, index| %>
+              <div class="assignment-row mb-3">
+                <label for="performer_assignments_<%= detected_id %>" class="form-label">
+                  <strong>検出ID <%= detected_id %></strong>:
+                </label>
+                <%= select_tag "performer_assignments[#{detected_id}]",
+                               options_from_collection_for_select(Performer.all, :id, :name, nil),
+                               { include_blank: "演者を選択してください", 
+                                 class: "form-select",
+                                 id: "performer_assignments_#{detected_id}" } %>
+              </div>
+            <% end %>
+          </div>
+          
+          <div class="form-actions mt-4 text-center">
+            <%= performer_form.submit "演者を紐付けて分析開始", class: "btn btn-success btn-lg" %>
+            <p class="text-muted small mt-2">演者の紐付け後、バックグラウンドで動画の詳細分析が開始されます</p>
+          </div>
+        </div>
+      <% end %>
     </div>
   <% end %>
 
@@ -85,6 +128,46 @@
 </div>
 
 <style>
+.detection-section {
+  border: 2px solid #28a745;
+  padding: 25px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
+  box-shadow: 0 4px 6px rgba(40, 167, 69, 0.1);
+}
+
+.assignments-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+
+.assignment-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.assignment-row label {
+  min-width: 140px;
+  font-weight: bold;
+  color: #495057;
+  margin-bottom: 0;
+}
+
+.form-select {
+  min-width: 250px;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
 .performer-name-link {
   color: #007bff !important;
   font-weight: 600;

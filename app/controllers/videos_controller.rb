@@ -45,6 +45,24 @@ class VideosController < ApplicationController
     end
   end
 
+  def reanalyze
+    @video = Video.find(params[:id])
+
+    service = VideoReanalysisService.new(video: @video)
+    result = service.call
+
+    if result.success?
+      @detected_ids = result.detected_ids
+      @images = result.images
+      @performers = Performer.all
+      flash.now[:notice] = result.notice_msg
+      render :show
+    else
+      flash[:alert] = result.error_message
+      redirect_to @video
+    end
+  end
+
   def video_params
     params.require(:video).permit(:title, :content, :analysis_status)
   end

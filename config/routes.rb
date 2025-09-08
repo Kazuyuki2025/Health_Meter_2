@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   resources :videos do
     member do
       post :assign_performers
+      post :reanalyze
     end
     resources :performances, only: [ :show, :edit, :update ]
   end
