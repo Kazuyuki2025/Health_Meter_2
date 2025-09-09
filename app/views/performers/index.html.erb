@@ -1,6 +1,12 @@
 <div class="container mt-4">
   <h1 class="mb-4">演者一覧</h1>
 
+  <div class="action-buttons mt-4">
+    <%= link_to '新規演者登録', new_performer_path, class: 'btn btn-primary btn-lg fs-5 me-3' %>
+    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
+    <%= link_to '元気ランキング', healthy_ranking_performers_path, class: 'btn btn-info btn-lg fs-5' %>
+  </div>
+
   <% if @performers.present? %>
     <div class="table-responsive">
       <table class="table table-striped table-hover">
@@ -43,6 +49,7 @@
   <div class="action-buttons mt-4">
     <%= link_to '新規演者登録', new_performer_path, class: 'btn btn-primary btn-lg fs-5 me-3' %>
     <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
+    <%= link_to '元気ランキング', healthy_ranking_performers_path, class: 'btn btn-info btn-lg fs-5' %>
   </div>
 </div>
 

@@ -1,0 +1,13 @@
+<div class="container mt-4">
+  <h1 class="mb-4">🏆 元気ランキング</h1>
+  
+  <div class="ranking-list">
+    <% @ranking_data.each_with_index do |performer_data, index| %>
+      <div class="ranking-item rank-<%= index + 1 %>">
+        <span class="rank-number"><%= index + 1 %></span>
+        <span class="performer-name"><%= performer_data.name %></span>
+        <span class="activity-score"><%= performer_data.avg_activity.round(2) %></span>
+      </div>
+    <% end %>
+  </div>
+</div>

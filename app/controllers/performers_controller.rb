@@ -92,8 +92,12 @@ class PerformersController < ApplicationController
     flash.now[:alert] = "パフォーマーの削除中にエラーが発生しました"
     render :index, status: :unprocessable_entity
   end
-end
 
-def performer_params
-  params.require(:performer).permit(:num, :name)
+  def healthy_ranking
+    @ranking_data = Performer.with_activity_average
+  end
+
+  def performer_params
+    params.require(:performer).permit(:num, :name)
+  end
 end
