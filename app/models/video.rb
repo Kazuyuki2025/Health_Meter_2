@@ -13,14 +13,35 @@ class Video < ApplicationRecord
     failed: "failed"
   }, validate: true
 
+  def get_detected_ids
+    performances.map.with_index { |_, index| index }
+  end
+
   def get_all_activities
-    performances.includes(:activities, :performer).map do |performance|
+    performances.includes(:performer, :activities).map do |performance|
+      activities = performance.activities
+      next if activities.blank?
+
       {
+        performance_id: performance.id,
         performer: performance.performer,
-        activities: performance.activities.order(:category),
-        average: performance.average_activity
+        activities: activities,
+        average: activities.map(&:value).sum.to_f / activities.size,
+        total_segments: activities.size
       }
-    end
+    end.compact
+  end
+
+  def calculate_overall_stats
+    activity_data = get_all_activities
+    return {} if activity_data.empty?
+
+    all_activities = activity_data.flat_map { |data| data[:activities] }
+    {
+      total_performers: performances.size,
+      total_segments: all_activities.size,
+      overall_average: all_activities.map(&:value).sum.to_f / all_activities.size
+    }
   end
 
   def assign_performer(detected_id, performer_id)

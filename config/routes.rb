@@ -8,7 +8,11 @@ Rails.application.routes.draw do
   end
 
   resources :performers
-  resources :performances
+  resources :performances do
+    collection do
+      get :healthy_ranking
+    end
+  end
 
   root "videos#index"
 end

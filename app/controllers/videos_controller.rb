@@ -74,34 +74,10 @@ class VideosController < ApplicationController
     @video = Video.find(params[:id])
     @performances = @video.performances.includes(:performer)
 
-    @detected_ids = @performances.map.with_index { |_, index| index }
-
     # 活動量データの計算
-    @activity_data = @performances.map do |performance|
-      activities = performance.activities
-      next if activities.blank?
-
-      {
-        performance_id: performance.id,
-        performer: performance.performer,
-        activities: activities,
-        average: activities.map(&:value).sum.to_f / activities.size,
-        total_segments: activities.size
-      }
-    end.compact
-    @activity_data ||= []
-
-    # 全体統計の計算
-    if @activity_data.any?
-      all_activities = @activity_data.flat_map { |data| data[:activities] }
-      @overall_stats = {
-        total_performers: @performances.size,
-        total_segments: all_activities.size,
-        overall_average: all_activities.map(&:value).sum.to_f / all_activities.size
-      }
-    else
-      @overall_stats = {}
-    end
+    @detected_ids = @video.get_detected_ids
+    @activity_data = @video.get_all_activities
+    @overall_stats = @video.calculate_overall_stats
   end
 
 
