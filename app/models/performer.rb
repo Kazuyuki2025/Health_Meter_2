@@ -9,13 +9,41 @@ class Performer < ApplicationRecord
       .order("avg_activity DESC")
   }
 
-  # 平均活動量を取得
   def average_activity
-    activities.average(:value) || 0
+    return 0 unless activities.exists?
+    activities.average(:value).to_f.round(2)
   end
 
   # 総活動量を取得
   def total_activity
     activities.sum(:value)
+  end
+
+  def get_performance_data
+    performances.includes(:video, :activities).order(created_at: :desc).map do |performance|
+      next if performance.activities.blank?
+
+      {
+        performance: performance,
+        activities: performance.activities.order(:category),
+        average: performance.average_activity,  # ← Performanceのメソッドを使用
+        total_segments: performance.activity_count,  # ← Performanceのメソッドを使用
+        video_title: performance.video.title,
+        date: performance.created_at
+      }
+    end.compact
+  end
+
+  def calculate_overall_stats
+    performance_data = get_performance_data
+    return {} if performance_data.empty?
+
+    {
+      total_performances: performance_data.size,
+      total_segments: performance_data.sum { |data| data[:total_segments] },
+      overall_average: average_activity,  # ← 既存メソッドを使用
+      highest_activity: activities.maximum(:value),
+      lowest_activity: activities.minimum(:value)
+    }
   end
 end

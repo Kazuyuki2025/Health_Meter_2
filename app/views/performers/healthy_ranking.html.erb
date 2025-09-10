@@ -1,5 +1,11 @@
 <div class="container mt-4">
   <h1 class="mb-4">🏆 元気ランキング</h1>
+
+  <div class="action-buttons mt-4">
+    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
+    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary ms-2' %>
+    <%= link_to '元気ランキング', healthy_ranking_performers_path, class: 'btn btn-info btn-lg fs-5' %>
+  </div>
   
   <div class="ranking-list">
     <% @ranking_data.each_with_index do |performer_data, index| %>
