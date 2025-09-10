@@ -20,15 +20,11 @@
                 <span>平均活動量:</span>
                 <strong><%= sprintf("%.2f", data[:average]) %></strong>
               </div>
-              <div class="stat-row">
-                <span>運動種目数:</span>
-                <span><%= data[:total_segments] %></span>
-              </div>
             </div>
 
             <!-- 運動種目別活動量（簡易表示） -->
             <div class="activities-preview">
-              <h6>運動種目別活動量（上位5種目）</h6>
+              <h6>運動種目別活動量</h6>
               <div class="activities-mini-table">
                 <% data[:activities].order(value: :desc).limit(5).each do |activity| %>
                   <div class="activity-mini-row">
@@ -58,7 +54,8 @@
 
   <!-- ナビゲーション -->
   <div class="actions mt-4">
-    <%= link_to '演者一覧に戻る', performers_path, class: 'btn btn-secondary' %>
+    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary' %>
+    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary' %>
     <%= link_to '編集', edit_performer_path(@performer), class: 'btn btn-outline-primary ms-2' %>
   </div>
 </div>

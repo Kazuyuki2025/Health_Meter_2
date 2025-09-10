@@ -1,5 +1,6 @@
 class Performer < ApplicationRecord
   has_many :performances, dependent: :destroy
+  has_many :activities, through: :performances
   validates :name, presence: true
 
   scope :with_activity_average, -> {
@@ -26,8 +27,7 @@ class Performer < ApplicationRecord
       {
         performance: performance,
         activities: performance.activities.order(:category),
-        average: performance.average_activity,  # ← Performanceのメソッドを使用
-        total_segments: performance.activity_count,  # ← Performanceのメソッドを使用
+        average: performance.average_activity,
         video_title: performance.video.title,
         date: performance.created_at
       }
@@ -40,7 +40,6 @@ class Performer < ApplicationRecord
 
     {
       total_performances: performance_data.size,
-      total_segments: performance_data.sum { |data| data[:total_segments] },
       overall_average: average_activity,  # ← 既存メソッドを使用
       highest_activity: activities.maximum(:value),
       lowest_activity: activities.minimum(:value)
