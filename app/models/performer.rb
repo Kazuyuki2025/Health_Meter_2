@@ -15,7 +15,6 @@ class Performer < ApplicationRecord
     activities.average(:value).to_f.round(2)
   end
 
-  # 総活動量を取得
   def total_activity
     activities.sum(:value)
   end
@@ -40,9 +39,74 @@ class Performer < ApplicationRecord
 
     {
       total_performances: performance_data.size,
-      overall_average: average_activity,  # ← 既存メソッドを使用
+      overall_average: average_activity,
       highest_activity: activities.maximum(:value),
       lowest_activity: activities.minimum(:value)
     }
+  end
+
+  def detect_unhealthy_status
+  latest_performance = performances.order(date: :desc).first
+  return nil unless latest_performance
+
+  previous_activities = Activity.joins(:performance)
+                                .where(performances: { performer_id: id })
+                                .where.not(performance_id: latest_performance.id)
+
+  stats = previous_activities.group_by(&:category).transform_values do |acts|
+    values = acts.map(&:value).compact # nil を除外
+    next if values.empty?
+    mean = values.sum.to_f / values.size
+    stddev = Math.sqrt(values.map { |v| (v - mean)**2 }.sum / values.size)
+    { avg_value: mean, stddev_value: stddev }
+  end.compact
+
+  activities = latest_performance.activities
+
+  z_scores = activities.map do |activity|
+    next if activity.value.nil?
+    stat = stats[activity.category]
+    next unless stat && stat[:stddev_value] > 0
+    z_score = (activity.value - stat[:avg_value]) / stat[:stddev_value]
+    { category: activity.category, z_score: z_score }
+  end.compact
+
+  low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+
+  {
+    latest_performance_date: latest_performance.date,
+    low_z_count: low_z_count,
+    total_categories: z_scores.size,
+    risk_percentage: z_scores.empty? ? 0 : ((low_z_count.to_f / z_scores.size) * 100).round(1),
+    z_scores: z_scores
+  }
+  end
+
+  def self.get_all_performers_with_statistics
+    performers = Performer.includes(performances: :activities)
+
+    performers.map do |performer|
+      stats = performer.detect_unhealthy_status
+
+      {
+        performer: performer,
+        performer_id: performer.id,
+        performer_name: performer.name,
+        average_activity: performer.average_activity,
+        total_performances: performer.performances.count,
+        statistics: stats
+      }
+    end
+  end
+
+  def self.get_performers_with_valid_statistics
+    get_all_performers_with_statistics.select { |data| data[:statistics] }
+  end
+
+  # リスク順（low_z_countが多い順）でソート
+  def self.sort_by_unhealthy_risk
+    get_performers_with_valid_statistics
+      .sort_by { |data| data[:statistics][:low_z_count] }
+      .reverse
   end
 end

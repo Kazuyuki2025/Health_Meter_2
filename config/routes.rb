@@ -10,6 +10,7 @@ Rails.application.routes.draw do
   resources :performers do
     collection do
       get :healthy_ranking
+      get :unhealthy_risk
     end
   end
 

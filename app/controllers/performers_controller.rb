@@ -57,4 +57,9 @@ class PerformersController < ApplicationController
   def performer_params
     params.require(:performer).permit(:num, :name)
   end
+
+  def unhealthy_risk
+    @performers_risk_data = Performer.sort_by_unhealthy_risk
+    @all_performers_data = Performer.get_all_performers_with_statistics
+  end
 end
