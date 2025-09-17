@@ -51,7 +51,7 @@ class PerformersController < ApplicationController
     render :index, status: :unprocessable_entity
   end
   def healthy_ranking
-    @ranking_data = Performer.with_activity_average
+    @ranking_data = Performer.with_latest_activity_average
   end
 
   def performer_params

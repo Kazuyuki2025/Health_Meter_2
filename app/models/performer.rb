@@ -3,11 +3,19 @@ class Performer < ApplicationRecord
   has_many :activities, through: :performances
   validates :name, presence: true
 
-  scope :with_activity_average, -> {
-    joins(performances: :activities)
+  scope :with_latest_activity_average, -> {
+    # サブクエリで各演者の最新パフォーマンスIDを取得
+    latest_performance_ids = joins(:performances)
       .group("performers.id")
-      .select("performers.*, AVG(activities.value) as avg_activity")
-      .order("avg_activity DESC")
+      .select("performers.id, MAX(performances.id) as latest_performance_id")
+
+    # 最新パフォーマンスの活動量平均を計算
+    joins("INNER JOIN (#{latest_performance_ids.to_sql}) latest_perf ON performers.id = latest_perf.id")
+      .joins("INNER JOIN performances ON performances.id = latest_perf.latest_performance_id")
+      .joins("INNER JOIN activities ON activities.performance_id = performances.id")
+      .group("performers.id, performers.name, performances.date")
+      .select("performers.*, AVG(activities.value) as latest_avg_activity, performances.date as latest_date")
+      .order("latest_avg_activity DESC")
   }
 
   def average_activity

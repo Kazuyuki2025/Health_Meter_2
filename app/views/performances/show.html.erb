@@ -72,14 +72,32 @@
   </div>
 </div>
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- Chart.js は application.html.erb で読み込み済み -->
 <script>
-  const ctx = document.getElementById('activityChart').getContext('2d');
-  const activityData = <%= raw @activity_data[:activities].map(&:value).to_json %>;
-  const exerciseNames = <%= raw @activity_data[:activities].map { |a| @activity_types[a.category] || "不明な運動 #{a.category + 1}" }.to_json %>;
+  // Turbo対応：ページ読み込み完了後にChart.jsを初期化
+  document.addEventListener('DOMContentLoaded', function() {
+    initializeChart();
+  });
   
-  new Chart(ctx, {
+  // Turbo遷移後にも対応
+  document.addEventListener('turbo:load', function() {
+    initializeChart();
+  });
+  
+  function initializeChart() {
+    const chartElement = document.getElementById('activityChart');
+    if (!chartElement) return; // 要素が存在しない場合は処理を中断
+    
+    // 既存のチャートがあれば破棄
+    if (window.myChart) {
+      window.myChart.destroy();
+    }
+    
+    const ctx = chartElement.getContext('2d');
+    const activityData = <%= raw @activity_data[:activities].map(&:value).to_json %>;
+    const exerciseNames = <%= raw @activity_data[:activities].map { |a| @activity_types[a.category] || "不明な運動 #{a.category + 1}" }.to_json %>;
+    
+    window.myChart = new Chart(ctx, {
     type: 'bar',
     data: {
       labels: exerciseNames,
@@ -135,8 +153,8 @@
         intersect: false,
         mode: 'index'
       }
-    }
-  });
+    });
+  }
 </script>
 
 <style>

@@ -51,9 +51,14 @@ class VideoUploadService
 
     unless movie.video_codec == "h264"
       h264_path = temp_path + "_h264.mp4"
-      movie.transcode(h264_path, %w[-vcodec libx264 -acodec aac -movflags +faststart])
+
+      Rails.logger.info "H.264エンコードが必要です。CPU エンコードを開始します"
+      cpu_encode(movie, h264_path)
+
       attach_source_path = h264_path
       transcoded = true
+    else
+      Rails.logger.info "エンコード不要: 既にH.264形式です"
     end
 
     video.content.attach(
@@ -64,6 +69,93 @@ class VideoUploadService
 
     FileUtils.rm_f(attach_source_path) if transcoded && File.exist?(attach_source_path)
   end
+
+
+
+  def cpu_encode(movie, output_path)
+    begin
+      # CPU エンコード設定を動的に最適化
+      cpu_options = get_optimized_cpu_options(movie)
+
+      Rails.logger.info "CPU エンコード開始: #{File.basename(output_path)} (#{movie.width}x#{movie.height})"
+      start_time = Time.current
+
+      movie.transcode(output_path, cpu_options) do |progress|
+        if progress > 0
+          elapsed = Time.current - start_time
+          estimated_total = elapsed / progress
+          remaining = estimated_total - elapsed
+
+          Rails.logger.debug "CPU エンコード進行: #{(progress * 100).round(1)}% (残り約#{remaining.round}秒)"
+        end
+      end
+
+      elapsed_time = Time.current - start_time
+      file_size_mb = File.size(output_path) / 1024.0 / 1024.0
+      original_size_mb = File.size(movie.path) / 1024.0 / 1024.0
+      compression_ratio = ((original_size_mb - file_size_mb) / original_size_mb * 100).round(1)
+
+      Rails.logger.info "CPU エンコード完了 - 処理時間: #{elapsed_time.round(1)}秒, " \
+                        "ファイルサイズ: #{file_size_mb.round(1)}MB " \
+                        "(#{compression_ratio}% 圧縮)"
+
+    rescue FFMPEG::Error => e
+      Rails.logger.error "CPU エンコードエラー: #{e.message}"
+      raise e
+    end
+  end
+
+  def get_optimized_cpu_options(movie)
+    # 入力動画の情報に基づいて最適化
+    width = movie.width || 1920
+    height = movie.height || 1080
+    total_pixels = width * height
+
+    # 解像度別の最適化設定
+    case total_pixels
+    when 0..518400        # ~720x720 (SD)
+      preset = "fast"
+      crf = "25"
+      threads = 4
+    when 518401..921600   # ~HD (720p)
+      preset = "fast"
+      crf = "24"
+      threads = 6
+    when 921601..2073600  # ~Full HD (1080p)
+      preset = "medium"
+      crf = "23"
+      threads = 8
+    else                  # 4K+
+      preset = "slow"
+      crf = "22"
+      threads = 12
+    end
+
+    # CPU コア数を考慮した調整
+    available_cores = Etc.nprocessors
+    threads = [ threads, available_cores ].min
+
+    Rails.logger.info "エンコード設定: #{width}x#{height} (#{total_pixels}px), " \
+                      "preset: #{preset}, crf: #{crf}, threads: #{threads}"
+
+    [
+      "-c:v", "libx264",
+      "-preset", preset,
+      "-crf", crf,
+      "-profile:v", "high",
+      "-level", "4.1",
+      "-threads", threads.to_s,      # スレッド数を明示的に指定
+      "-tune", "film",               # 実写動画に最適化
+      "-c:a", "aac",
+      "-b:a", "128k",
+      "-ac", "2",                    # ステレオに統一
+      "-ar", "44100",                # サンプリングレートを統一
+      "-movflags", "+faststart",
+      "-pix_fmt", "yuv420p"          # 互換性のための色空間指定
+    ]
+  end
+
+
 
   def prepare_response_data
     @notice_msg = if @detected_ids&.any?
