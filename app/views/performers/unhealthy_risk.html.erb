@@ -1,6 +1,6 @@
 <%# app/views/performers/unhealthy_risk.html.erb %>
 <div class="container mt-4">
-  <h1 class="mb-4">⚠️ 体調不良リスク一覧</h1>
+  <h1 class="mb-4">⚠️ 体調不良の疑いがある演者</h1>
 
   <div class="action-buttons mb-4">
     <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
@@ -23,8 +23,7 @@
           <thead class="table-danger">
             <tr>
               <th class="fs-5">演者名</th>
-              <th class="fs-5">リスクカテゴリ数</th>
-              <th class="fs-5">リスク率</th>
+              <th class="fs-5">問題のある運動の数</th>
               <th class="fs-5">最新測定日</th>
               <th class="fs-5">詳細</th>
             </tr>
@@ -34,11 +33,6 @@
               <% stats = performer_data[:statistics] %>
               <% risk_level = get_risk_level(stats[:low_z_count], stats[:total_categories]) %>
               <tr class="<%= get_risk_row_class(risk_level) %>">
-                <td>
-                  <span class="badge fs-6 <%= get_risk_badge_class(risk_level) %>">
-                    <%= get_risk_label(risk_level) %>
-                  </span>
-                </td>
                 <td class="fs-4">
                   <%= link_to performer_data[:performer_name], 
                       performer_path(performer_data[:performer]), 
@@ -46,12 +40,7 @@
                 </td>
                 <td class="fs-4 text-center">
                   <span class="badge bg-warning text-dark fs-6">
-                    <%= stats[:low_z_count] %> / <%= stats[:total_categories] %>
-                  </span>
-                </td>
-                <td class="fs-4 text-center">
-                  <span class="text-danger fw-bold">
-                    <%= stats[:risk_percentage] %>%
+                    <%= stats[:low_z_count] %>
                   </span>
                 </td>
                 <td class="fs-5">
@@ -78,14 +67,6 @@
   <!-- 統計サマリー -->
   <div class="statistics-summary mt-4">
     <div class="row">
-      <div class="col-md-3">
-        <div class="card text-center border-danger">
-          <div class="card-body">
-            <h5 class="card-title text-danger">リスク有</h5>
-            <h2 class="text-danger"><%= risk_performers.count %>名</h2>
-          </div>
-        </div>
-      </div>
       <div class="col-md-3">
         <div class="card text-center border-success">
           <div class="card-body">
@@ -114,13 +95,6 @@
       </div>
     </div>
   </div>
-
-  <!-- 参考：全演者一覧へのリンク -->
-  <div class="text-center mt-4">
-    <p class="text-muted">正常な演者も含めた全ての演者の状況を確認する場合：</p>
-    <%= link_to '全演者一覧を見る', performers_path, class: 'btn btn-outline-secondary btn-lg' %>
-  </div>
-</div>
 
 <style>
 .performer-link {

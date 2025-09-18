@@ -25,6 +25,7 @@ class VideoUploadService
   attr_reader :video, :video_params, :uploaded_file
 
   def process_video_upload
+    extract_video_metadata
     attach_and_prepare_video
 
     if video.save
@@ -40,6 +41,19 @@ class VideoUploadService
   rescue => e
     Rails.logger.error "エラー発生: #{e.message}"
     failure_result("アップロード中にエラーが発生しました")
+  end
+
+  def extract_video_metadata
+    temp_path = uploaded_file.tempfile.path
+    movie = FFMPEG::Movie.new(temp_path)
+
+    # 撮影日時を取得
+    shooting_date = extract_video_creation_date(movie, temp_path)
+    
+    # Videoオブジェクトに日付を設定
+    video.date = shooting_date || Date.current
+
+    Rails.logger.info "動画撮影日: #{video.date}"
   end
 
   def attach_and_prepare_video
@@ -155,8 +169,6 @@ class VideoUploadService
     ]
   end
 
-
-
   def prepare_response_data
     @notice_msg = if @detected_ids&.any?
       "動画がアップロードされました。画像解析で #{@detected_ids.size} 人を検出しました。"
@@ -165,5 +177,42 @@ class VideoUploadService
     end
 
     @images = get_generated_images
+  end
+
+  private
+  def extract_video_creation_date(movie, file_path)
+    # 1. FFmpegのメタデータから撮影日時を取得
+    creation_time = movie.metadata[:creation_time] || 
+                  movie.metadata[:date] ||
+                  movie.metadata[:com_apple_quicktime_creationdate]
+
+    if creation_time
+      begin
+        return Time.parse(creation_time).to_date
+      rescue => e
+        Rails.logger.warn "メタデータの日時解析に失敗: #{e.message}"
+      end
+    end
+
+    # 2. ファイル名から日付を抽出 (例: 20240416_124325.mp4)
+    filename = uploaded_file.original_filename
+    if match = filename.match(/(\d{4})[\-_]?(\d{2})[\-_]?(\d{2})/)
+      year, month, day = match[1], match[2], match[3]
+      begin
+        return Date.new(match[1].to_i, match[2].to_i, match[3].to_i)
+      rescue => e
+        Rails.logger.warn "ファイル名からの日付抽出に失敗: #{e.message}"
+      end
+    end
+
+    # 3. ファイルの作成日時を使用
+    begin
+      return File.ctime(file_path).to_date
+    rescue => e
+      Rails.logger.warn "ファイル作成日時の取得に失敗: #{e.message}"
+    end
+
+    # デフォルトはnil（現在日付は呼び出し元で設定）
+    nil
   end
 end

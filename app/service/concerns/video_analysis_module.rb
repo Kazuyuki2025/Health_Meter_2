@@ -74,6 +74,7 @@ module VideoAnalysisModule
     VideoUploadResult.new(
       success: true,
       video: video,
+      shooting_date: video.date,
       detected_ids: @detected_ids || [],
       images: @images || [],
       notice_msg: notice_msg || default_success_message
@@ -84,7 +85,8 @@ module VideoAnalysisModule
     VideoUploadResult.new(
       success: false,
       error_message: message,
-      video: video
+      video: video,
+      shooting_date: video.date
     )
   end
 

@@ -16,11 +16,13 @@ class VideosController < ApplicationController
 
     if result.success?
       @video = result.video
+      @shooting_date = result.shooting_date
       @detected_ids = result.detected_ids
       @images = result.images
       @performers = Performer.all
       flash.now[:notice] = result.notice_msg
       render :new
+      Rails.logger.info "動画アップロード成功: 撮影日 #{result.shooting_date}"
     else
       @video = result.video || Video.new
       flash.now[:alert] = result.error_message
