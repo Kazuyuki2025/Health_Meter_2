@@ -1,123 +1,98 @@
 <div class="container mt-4">
-  <h1 class="mb-4">🏆 元気ランキング</h1>
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <h1 class="text-center mb-4 display-4 fw-bold text-black">🏆 元気ランキング</h1>
 
-  <div class="action-buttons mb-4">
-    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
-    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary btn-lg fs-5 ms-2' %>
-    <%= link_to '体調不良リスク一覧', unhealthy_risk_performers_path, class: 'btn btn-warning btn-lg fs-5 ms-2' %>
-  </div>
-  
-  <div class="ranking-list">
-    <% @ranking_data.each_with_index do |performer_data, index| %>
-      <div class="ranking-item rank-<%= index + 1 %> mb-3">
-        <div class="rank-medal">
-          <% if index == 0 %>
-            <span class="medal gold">🥇</span>
-            <span class="rank-number first">1位</span>
-          <% elsif index == 1 %>
-            <span class="medal silver">🥈</span>
-            <span class="rank-number second">2位</span>
-          <% elsif index == 2 %>
-            <span class="medal bronze">🥉</span>
-            <span class="rank-number third">3位</span>
-          <% else %>
-            <span class="rank-number other"><%= index + 1 %>位</span>
-          <% end %>
-        </div>
-        
-        <div class="performer-info">
-          <div class="performer-name-container">
-            <%= link_to performer_path(performer_data), class: "performer-name rank-#{index + 1}", style: "text-decoration: none;" do %>
-              <%= performer_data.name %>
-            <% end %>
-            <% if index < 3 %>
-              <div class="crown-effect">👑</div>
-            <% end %>
-          </div>
-          <div class="performer-details">
-            <span class="activity-label">活動量</span>
-            <span class="activity-score rank-<%= index + 1 %>">
-              <%= performer_data.latest_avg_activity.round(2) %>
-            </span>
-            <span class="unit">pts</span>
-            <div class="latest-date mt-1">
-              <small class="text-muted fs-1">日付: <%= performer_data.latest_date rescue "データなし" %></small>
+      <div class="ranking-list">
+        <% @ranking_data.each_with_index do |performer_data, index| %>
+          <div class="card mb-4 border-0 shadow-lg ranking-item rank-<%= index + 1 %> <%= 'border-warning' if index < 3 %>">
+            <div class="card-body p-4">
+              <div class="row align-items-center">
+                <!-- Medal Section -->
+                <div class="col-auto text-center">
+                  <div class="rank-medal d-flex flex-column align-items-center">
+                    <% if index == 0 %>
+                      <span class="medal gold fs-1 mb-2">🥇</span>
+                      <span class="badge bg-warning text-dark fw-bold fs-6 rank-number first">1位</span>
+                    <% elsif index == 1 %>
+                      <span class="medal silver fs-1 mb-2">🥈</span>
+                      <span class="badge bg-secondary text-white fw-bold fs-6 rank-number second">2位</span>
+                    <% elsif index == 2 %>
+                      <span class="medal bronze fs-1 mb-2">🥉</span>
+                      <span class="badge bg-warning text-dark fw-bold fs-6 rank-number third">3位</span>
+                    <% else %>
+                      <span class="badge bg-primary text-white fw-bold fs-5 rank-number other"><%= index + 1 %>位</span>
+                    <% end %>
+                  </div>
+                </div>
+                
+                <!-- Performer Info Section -->
+                <div class="col">
+                  <div class="d-flex align-items-center mb-2">
+                    <%= link_to performer_path(performer_data), class: "text-decoration-none performer-name rank-#{index + 1} me-3" do %>
+                      <h3 class="mb-0 fw-bold <%= 'text-black' if index == 0 %> <%= 'text-black' if index == 1 %> <%= 'text-black' if index == 2 %> <%= 'text-primary' if index > 2 %>">
+                        <%= performer_data.name %>
+                      </h3>
+                    <% end %>
+                    <% if index < 3 %>
+                      <span class="crown-effect fs-4">👑</span>
+                    <% end %>
+                  </div>
+                  
+                  <div class="d-flex align-items-baseline gap-2 mb-2">
+                    <small class="text-muted fw-medium">活動量:</small>
+                    <span class="badge <%= 'bg-warning text-dark' if index == 0 %> <%= 'bg-secondary' if index == 1 %> <%= 'bg-warning text-dark' if index == 2 %> <%= 'bg-primary' if index > 2 %> fs-5 fw-bold activity-score">
+                      <%= performer_data.latest_avg_activity.round(2) %>
+                    </span>
+                  </div>
+                  
+                  <div class="text-muted">
+                    <small class="fw-medium">日付: <%= performer_data.latest_date rescue "データなし" %></small>
+                  </div>
+                </div>
+                
+                <!-- Sparkle Effect Section -->
+                <% if index < 3 %>
+                  <div class="col-auto">
+                    <div class="d-flex flex-column gap-1 sparkle-effect">
+                      <span class="sparkle fs-4">✨</span>
+                      <span class="sparkle fs-4">⭐</span>
+                      <span class="sparkle fs-4">✨</span>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div class="sparkle-effect">
-          <% if index < 3 %>
-            <span class="sparkle">✨</span>
-            <span class="sparkle">⭐</span>
-            <span class="sparkle">✨</span>
-          <% end %>
-        </div>
+        <% end %>
       </div>
-    <% end %>
+    </div>
   </div>
 </div>
 
 <style>
-.ranking-list {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem 0;
-}
-
+/* カスタムアニメーション効果 */
 .ranking-item {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-  border: 2px solid #e9ecef;
-  border-radius: 20px;
-  padding: 1.5rem 2rem;
-  display: flex;
-  align-items: center;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
 }
 
 .ranking-item:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  transform: translateY(-5px);
 }
 
-/* 1位の特別スタイル */
+/* 1位の特別な光る効果 */
 .ranking-item.rank-1 {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #fff200 100%);
-  border: 3px solid #ffb000;
-  animation: goldGlow 2s ease-in-out infinite alternate;
-}
-
-/* 2位の特別スタイル */
-.ranking-item.rank-2 {
-  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 50%, #d4d4d4 100%);
-  border: 3px solid #a0a0a0;
-}
-
-/* 3位の特別スタイル */
-.ranking-item.rank-3 {
-  background: linear-gradient(135deg, #cd7f32 0%, #deb887 50%, #d2691e 100%);
-  border: 3px solid #b8860b;
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 50%, #fff200 100%) !important;
+  animation: goldGlow 3s ease-in-out infinite alternate;
 }
 
 @keyframes goldGlow {
-  0% { box-shadow: 0 8px 25px rgba(255, 215, 0, 0.3); }
-  100% { box-shadow: 0 12px 35px rgba(255, 215, 0, 0.6); }
+  0% { box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3); }
+  100% { box-shadow: 0 8px 25px rgba(255, 193, 7, 0.6); }
 }
 
-.rank-medal {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-right: 2rem;
-  min-width: 100px;
-}
-
+/* メダルのバウンス効果 */
 .medal {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
   animation: bounce 2s infinite;
 }
 
@@ -127,88 +102,10 @@
   60% { transform: translateY(-5px); }
 }
 
-.rank-number {
-  font-weight: 800;
-  font-size: 1.2rem;
-  text-align: center;
-}
-
-.rank-number.first {
-  color: #ff6b35;
-  text-shadow: 2px 2px 4px rgba(255, 107, 53, 0.3);
-  font-size: 1.4rem;
-}
-
-.rank-number.second {
-  color: #6c757d;
-  text-shadow: 2px 2px 4px rgba(108, 117, 125, 0.3);
-  font-size: 1.3rem;
-}
-
-.rank-number.third {
-  color: #8b4513;
-  text-shadow: 2px 2px 4px rgba(139, 69, 19, 0.3);
-  font-size: 1.2rem;
-}
-
-.rank-number.other {
-  color: #495057;
-  font-size: 1.5rem;
-}
-
-.performer-info {
-  flex-grow: 1;
-  margin-left: 1rem;
-}
-
-.performer-name-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.performer-name {
-  font-size: 2rem;
-  font-weight: 700;
-  margin-right: 1rem;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.performer-name:hover {
-  transform: scale(1.05);
-  text-shadow: 0 0 10px rgba(0,0,0,0.3);
-}
-
-.performer-name.rank-1 {
-  color: #ff6b35;
-  text-shadow: 3px 3px 6px rgba(255, 107, 53, 0.4);
-  font-size: 2.5rem;
-  animation: textGlow 2s ease-in-out infinite alternate;
-}
-
-.performer-name.rank-2 {
-  color: #6c757d;
-  text-shadow: 2px 2px 4px rgba(108, 117, 125, 0.4);
-  font-size: 2.2rem;
-}
-
-.performer-name.rank-3 {
-  color: #8b4513;
-  text-shadow: 2px 2px 4px rgba(139, 69, 19, 0.4);
-  font-size: 2.1rem;
-}
-
-@keyframes textGlow {
-  0% { text-shadow: 3px 3px 6px rgba(255, 107, 53, 0.4); }
-  100% { text-shadow: 5px 5px 10px rgba(255, 107, 53, 0.8); }
-}
-
+/* 王冠の回転効果 */
 .crown-effect {
-  font-size: 1.5rem;
   animation: rotate 3s linear infinite;
+  display: inline-block;
 }
 
 @keyframes rotate {
@@ -216,61 +113,20 @@
   100% { transform: rotate(360deg); }
 }
 
-.performer-details {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
+/* 1位の名前の光る効果 */
+.performer-name.rank-1 h3 {
+  animation: textGlow 2s ease-in-out infinite alternate;
 }
 
-.activity-label {
-  font-size: 0.9rem;
-  color: #6c757d;
-  font-weight: 500;
+@keyframes textGlow {
+  0% { text-shadow: 2px 2px 4px rgba(255, 193, 7, 0.4); }
+  100% { text-shadow: 4px 4px 8px rgba(255, 193, 7, 0.8); }
 }
 
-.activity-score {
-  font-size: 1.8rem;
-  font-weight: 800;
-  padding: 0.3rem 0.8rem;
-  background: rgba(255,255,255,0.8);
-  border-radius: 12px;
-  border: 2px solid #e9ecef;
-}
-
-.activity-score.rank-1 {
-  color: #ff6b35;
-  border-color: #ff6b35;
-  background: rgba(255, 107, 53, 0.1);
-}
-
-.activity-score.rank-2 {
-  color: #6c757d;
-  border-color: #6c757d;
-  background: rgba(108, 117, 125, 0.1);
-}
-
-.activity-score.rank-3 {
-  color: #8b4513;
-  border-color: #8b4513;
-  background: rgba(139, 69, 19, 0.1);
-}
-
-.unit {
-  font-size: 1rem;
-  color: #6c757d;
-  font-weight: 600;
-}
-
-.sparkle-effect {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin-left: 1rem;
-}
-
+/* スパークル効果 */
 .sparkle {
-  font-size: 1.5rem;
   animation: sparkleAnimation 1.5s ease-in-out infinite;
+  display: inline-block;
 }
 
 .sparkle:nth-child(2) {
@@ -283,52 +139,14 @@
 
 @keyframes sparkleAnimation {
   0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.7; }
-  50% { transform: scale(1.2) rotate(180deg); opacity: 1; }
+  50% { transform: scale(1.3) rotate(180deg); opacity: 1; }
 }
 
-.action-buttons {
-  text-align: center;
-  padding: 1rem 0;
-}
-
-.latest-date {
-  text-align: center;
-  font-size: 1rem;
-}
-
-.latest-date small {
-  background: transparent;
-  padding: 4px 8px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
+/* レスポンシブ調整 */
 @media (max-width: 768px) {
-  .ranking-item {
-    flex-direction: column;
-    text-align: center;
-    padding: 1rem;
-  }
-  
-  .rank-medal {
-    margin-right: 0;
-    margin-bottom: 1rem;
-  }
-  
-  .performer-name {
-    font-size: 1.5rem !important;
-  }
-  
-  .performer-name.rank-1 {
-    font-size: 1.8rem !important;
-  }
-  
   .sparkle-effect {
-    flex-direction: row;
+    flex-direction: row !important;
     justify-content: center;
-    margin-left: 0;
-    margin-top: 1rem;
   }
 }
 </style>

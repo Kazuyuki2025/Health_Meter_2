@@ -1,7 +1,8 @@
 <div class="container mt-4">
   <h1>動画のアップロード</h1>
 
-  <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
+  <% unless @detected_ids.present? && @video&.persisted? %>
+    <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" },class: "w-25", data: {turbo: false} do |form| %>
     <% if flash[:alert] %>
       <div class="alert alert-danger"><%= flash[:alert] %></div>
     <% end %>
@@ -23,6 +24,7 @@
     <div class="actions mt-3 text-center">
       <%= form.submit "アップロード", class: "btn btn-primary btn-lg" %>
     </div>
+    <% end %>
   <% end %>
 
   <!-- 顔検出結果と演者選択フォーム -->
