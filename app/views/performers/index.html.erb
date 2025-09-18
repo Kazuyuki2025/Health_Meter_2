@@ -1,11 +1,8 @@
 <div class="container mt-4">
   <h1 class="mb-4">演者一覧</h1>
 
-  <div class="action-buttons mt-4">
-    <%= link_to '新規演者登録', new_performer_path, class: 'btn btn-primary btn-lg fs-5 me-3' %>
-    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
-    <%= link_to '元気ランキング', healthy_ranking_performers_path, class: 'btn btn-info btn-lg fs-5' %>
-    <%= link_to '体調不良リスク一覧', unhealthy_risk_performers_path, class: 'btn btn-warning btn-lg fs-5' %>
+ <div>
+  <%= link_to '新規作成', new_performer_path, class: 'btn btn-primary btn-lg fs-5 mb-3' %>
   </div>
 
   <% if @performers.present? %>
@@ -27,7 +24,7 @@
               </td>
               <td>
                 <div class="d-flex gap-2">
-                  <%= link_to '編集', edit_performer_path(performer), class: 'btn btn-warning btn-lg fs-5' %>
+                  <%= link_to '編集', edit_performer_path(performer), class: 'btn btn-primary btn-lg fs-5' %>
                   <%= button_to '削除', 
                       performer_path(performer), 
                       method: :delete, 
@@ -47,66 +44,9 @@
     </div>
   <% end %>
 
-  <div class="action-buttons mt-4">
-    <%= link_to '新規演者登録', new_performer_path, class: 'btn btn-primary btn-lg fs-5 me-3' %>
-    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary btn-lg fs-5' %>
-    <%= link_to '元気ランキング', healthy_ranking_performers_path, class: 'btn btn-info btn-lg fs-5' %>
-    <%= link_to '体調不良リスク一覧', unhealthy_risk_performers_path, class: 'btn btn-warning btn-lg fs-5' %>
-  </div>
-</div>
-
 <style>
-.performer-link {
-  color: #007bff;
-  text-decoration: none;
-  font-weight: 600;
-  font-size: 1.5rem;
-}
-
-.performer-link:hover {
-  text-decoration: underline;
-  color: #0056b3;
-  transform: scale(1.05);
-  transition: all 0.2s ease;
-}
-
 .table {
   font-size: 1.2rem;
 }
 
-.table td {
-  padding: 1rem;
-  vertical-align: middle;
-}
-
-.table th {
-  padding: 1rem;
-  font-weight: 700;
-}
-
-.action-buttons {
-  text-align: center;
-  padding: 2rem 0;
-  border-top: 2px solid #e9ecef;
-}
-
-.btn-lg {
-  padding: 0.75rem 1.5rem;
-  font-weight: 600;
-}
-
-@media (max-width: 768px) {
-  .fs-4 {
-    font-size: 1.2rem !important;
-  }
-  
-  .performer-link {
-    font-size: 1.2rem;
-  }
-  
-  .btn-lg {
-    font-size: 1rem;
-    padding: 0.5rem 1rem;
-  }
-}
 </style>

@@ -1,8 +1,6 @@
 <div class="container mt-4">
   <h1>動画のアップロード</h1>
 
-  <%= link_to '動画一覧へ戻る', videos_path, class: 'btn btn-secondary mb-3' %>
-
   <%= form_with model: @video, local: true, html: { multipart: true, id: "upload-form" }, data: {turbo: false} do |form| %>
     <% if flash[:alert] %>
       <div class="alert alert-danger"><%= flash[:alert] %></div>
@@ -70,83 +68,3 @@
     </div>
   <% end %>
 </div>
-
-<style>
-.detection-section {
-  border: 2px solid #28a745;
-  padding: 25px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #f8fff9 0%, #e8f5e8 100%);
-  box-shadow: 0 4px 6px rgba(40, 167, 69, 0.1);
-}
-
-.assignments-container {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #dee2e6;
-}
-
-.assignment-row {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 6px;
-  border: 1px solid #e9ecef;
-}
-
-.assignment-row label {
-  min-width: 140px;
-  font-weight: bold;
-  color: #495057;
-  margin-bottom: 0;
-}
-
-.form-select {
-  min-width: 250px;
-  padding: 8px 12px;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.thumbnail-image {
-  display: block;
-  margin: 0 auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-}
-
-.image-preview {
-  border: 1px solid #e0e0e0;
-  padding: 20px;
-  border-radius: 8px;
-  background-color: #fafafa;
-}
-
-.images-container {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 15px;
-}
-
-.face-image {
-  text-align: center;
-}
-
-.detected-face {
-  width: 100px;
-  height: 100px;
-  object-fit: cover;
-  border-radius: 8px;
-  border: 2px solid #007bff;
-}
-
-.detected-face + p {
-  margin-top: 5px;
-  font-size: 12px;
-  color: #666;
-}
-</style>
-

@@ -35,7 +35,41 @@
     <%= javascript_importmap_tags %>
   </head>
 
-  <body>
-    <%= yield %>
+  <body class="d-flex flex-column min-vh-100">
+    <!-- Header Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <%= link_to "Health Meter", root_path, class: "navbar-brand fw-bold" %>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav me-auto">
+            <li class="nav-item">
+              <%= link_to "動画アップロード", new_video_path, class: "nav-link" %>
+            </li>
+            <li class="nav-item">
+              <%= link_to "演者一覧", performers_path, class: "nav-link" %>
+            </li>
+            <li class="nav-item">
+              <%= link_to "演者登録", new_performer_path, class: "nav-link" %>
+            </li>
+            <li class="nav-item">
+              <%= link_to "元気ランキング", healthy_ranking_performers_path, class: "nav-link" %>
+            </li>
+            <li class="nav-item">
+              <%= link_to "体調不良リスク一覧", unhealthy_risk_performers_path, class: "nav-link" %>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-grow-1">
+      <%= yield %>
+    </main>
   </body>
 </html>
