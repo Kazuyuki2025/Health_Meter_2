@@ -70,7 +70,10 @@ class VideosController < ApplicationController
   end
 
   def index
-    @videos = Video.all
+    @videos = Video.order(
+    Arel.sql("date DESC NULLS LAST"),
+    created_at: :desc
+  )
   end
   def show
     @video = Video.find(params[:id])

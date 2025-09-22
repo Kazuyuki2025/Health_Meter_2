@@ -30,7 +30,7 @@
                     <i class="fas fa-<%= status_icon(video.analysis_status) %>"></i>
                     <%= status_text(video.analysis_status) %>
                   </span>
-                  <small class="text-muted">
+                  <small class="text-muted">アップロード日:
                     <%= video.created_at.strftime("%Y年%m月%d日 %H:%M") %>
                   </small>
                 </div>
@@ -70,17 +70,37 @@
                   現在解析中です...
                 </p>
               <% when 'completed' %>
-                <p class="text-success mb-0">
-                  <i class="fas fa-check-circle"></i> 
-                  解析完了 - 
-                  <% performer_count = video.performances.count %>
-                  <%= performer_count %>名の演者が検出されました
-                </p>
+                <div class="performers-list">
+                  <small class="text-muted">出演者:</small>
+                  <div class="mt-1">
+                    <% video.performances.includes(:performer).each_with_index do |performance, index| %>
+                      <% if performance.performer %>
+                        <span class="badge bg-light text-dark me-1 mb-1">
+                          <i class="fas fa-user me-1"></i>
+                          <%= performance.performer.name %>
+                        </span>
+                      <% else %>
+                        <span class="badge bg-secondary me-1 mb-1">
+                          <i class="fas fa-question me-1"></i>
+                          未割り当て
+                        </span>
+                      <% end %>
+                    <% end %>
+                </div>
+              </div>
               <% when 'failed' %>
                 <p class="text-danger mb-0">
                   <i class="fas fa-exclamation-triangle"></i> 
                   解析に失敗しました
                 </p>
+                <%= button_to "再解析", reanalyze_video_path(video), 
+                      method: :post,
+                      class: "btn btn-warning btn-sm",
+                      title: "顔検出を再実行します",
+                      data: { 
+                        turbo: false,
+                        turbo_confirm: "再解析を実行しますか？既存のデータは削除されます。"
+                      } %>
               <% end %>
             </div>
             </div>

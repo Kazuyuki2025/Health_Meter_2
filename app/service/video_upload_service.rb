@@ -49,7 +49,7 @@ class VideoUploadService
 
     # 撮影日時を取得
     shooting_date = extract_video_creation_date(movie, temp_path)
-    
+
     # Videoオブジェクトに日付を設定
     video.date = shooting_date || Date.current
 
@@ -182,7 +182,7 @@ class VideoUploadService
   private
   def extract_video_creation_date(movie, file_path)
     # 1. FFmpegのメタデータから撮影日時を取得
-    creation_time = movie.metadata[:creation_time] || 
+    creation_time = movie.metadata[:creation_time] ||
                   movie.metadata[:date] ||
                   movie.metadata[:com_apple_quicktime_creationdate]
 
@@ -197,7 +197,6 @@ class VideoUploadService
     # 2. ファイル名から日付を抽出 (例: 20240416_124325.mp4)
     filename = uploaded_file.original_filename
     if match = filename.match(/(\d{4})[\-_]?(\d{2})[\-_]?(\d{2})/)
-      year, month, day = match[1], match[2], match[3]
       begin
         return Date.new(match[1].to_i, match[2].to_i, match[3].to_i)
       rescue => e
