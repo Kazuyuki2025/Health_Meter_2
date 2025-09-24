@@ -12,7 +12,8 @@
           <div class="performance-card">
             <div class="card-header">
               <h4><%= link_to data[:video_title], video_performance_path(data[:performance].video, data[:performance]), class: "video-link" %></h4>
-              <small class="text-muted">日付: <%= data[:date] %></small>
+              <div class= "video-date">撮影日: <%= data[:video_date] || "不明" %> |</div>
+              <small class="text-muted">アップロード日: <%= data[:date] %></small>
             </div>
             
             <div class="performance-stats">

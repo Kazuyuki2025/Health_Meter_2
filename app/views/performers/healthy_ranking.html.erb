@@ -30,7 +30,7 @@
                 <div class="col">
                   <div class="d-flex align-items-center mb-2">
                     <%= link_to performer_path(performer_data), class: "text-decoration-none performer-name rank-#{index + 1} me-3" do %>
-                      <h3 class="mb-0 fw-bold <%= 'text-black' if index == 0 %> <%= 'text-black' if index == 1 %> <%= 'text-black' if index == 2 %> <%= 'text-primary' if index > 2 %>">
+                      <h3 class="mb-0 fw-bold text-black">
                         <%= performer_data.name %>
                       </h3>
                     <% end %>
@@ -86,9 +86,31 @@
   animation: goldGlow 3s ease-in-out infinite alternate;
 }
 
+/* 2位の銀色効果 */
+.ranking-item.rank-2 {
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 50%, #d3d3d3 100%) !important;
+  animation: silverGlow 3s ease-in-out infinite alternate;
+}
+
+/* 3位の銅色効果 */
+.ranking-item.rank-3 {
+  background: linear-gradient(135deg, #cd7f32 0%, #daa520 50%, #b8860b 100%) !important;
+  animation: bronzeGlow 3s ease-in-out infinite alternate;
+}
+
 @keyframes goldGlow {
   0% { box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3); }
   100% { box-shadow: 0 8px 25px rgba(255, 193, 7, 0.6); }
+}
+
+@keyframes silverGlow {
+  0% { box-shadow: 0 4px 15px rgba(192, 192, 192, 0.3); }
+  100% { box-shadow: 0 8px 25px rgba(192, 192, 192, 0.6); }
+}
+
+@keyframes bronzeGlow {
+  0% { box-shadow: 0 4px 15px rgba(205, 127, 50, 0.3); }
+  100% { box-shadow: 0 8px 25px rgba(205, 127, 50, 0.6); }
 }
 
 /* メダルのバウンス効果 */
@@ -118,9 +140,29 @@
   animation: textGlow 2s ease-in-out infinite alternate;
 }
 
+/* 2位の名前の銀色光る効果 */
+.performer-name.rank-2 h3 {
+  animation: silverTextGlow 2s ease-in-out infinite alternate;
+}
+
+/* 3位の名前の銅色光る効果 */
+.performer-name.rank-3 h3 {
+  animation: bronzeTextGlow 2s ease-in-out infinite alternate;
+}
+
 @keyframes textGlow {
   0% { text-shadow: 2px 2px 4px rgba(255, 193, 7, 0.4); }
   100% { text-shadow: 4px 4px 8px rgba(255, 193, 7, 0.8); }
+}
+
+@keyframes silverTextGlow {
+  0% { text-shadow: 2px 2px 4px rgba(192, 192, 192, 0.4); }
+  100% { text-shadow: 4px 4px 8px rgba(192, 192, 192, 0.8); }
+}
+
+@keyframes bronzeTextGlow {
+  0% { text-shadow: 2px 2px 4px rgba(205, 127, 50, 0.4); }
+  100% { text-shadow: 4px 4px 8px rgba(205, 127, 50, 0.8); }
 }
 
 /* スパークル効果 */

@@ -181,7 +181,7 @@ class VideoUploadService
 
   private
   def extract_video_creation_date(movie, file_path)
-    # 1. FFmpegのメタデータから撮影日時を取得
+    # FFmpegのメタデータから撮影日時を取得
     creation_time = movie.metadata[:creation_time] ||
                   movie.metadata[:date] ||
                   movie.metadata[:com_apple_quicktime_creationdate]
@@ -194,17 +194,6 @@ class VideoUploadService
       end
     end
 
-    # 2. ファイル名から日付を抽出 (例: 20240416_124325.mp4)
-    filename = uploaded_file.original_filename
-    if match = filename.match(/(\d{4})[\-_]?(\d{2})[\-_]?(\d{2})/)
-      begin
-        return Date.new(match[1].to_i, match[2].to_i, match[3].to_i)
-      rescue => e
-        Rails.logger.warn "ファイル名からの日付抽出に失敗: #{e.message}"
-      end
-    end
-
-    # 3. ファイルの作成日時を使用
     begin
       return File.ctime(file_path).to_date
     rescue => e

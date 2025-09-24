@@ -18,7 +18,9 @@ class PerformersController < ApplicationController
   end
   def show
     @performer = Performer.find(params[:id])
-    @performances = @performer.performances.includes(:video, :activities).order(created_at: :desc)
+    @performances = @performer.performances.includes(:video, :activities)
+                                           .joins(:video)
+                                           .order(Arel.sql("videos.date DESC NULLS LAST, videos.created_at DESC"))
 
     @activity_types = Activity.activity_types
     @performance_data = @performer.get_performance_data
