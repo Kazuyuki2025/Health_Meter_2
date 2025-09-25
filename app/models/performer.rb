@@ -38,7 +38,10 @@ class Performer < ApplicationRecord
   end
 
   def get_performance_data
-    performances.includes(:video, :activities).order(created_at: :desc).map do |performance|
+    performances.includes(:video, :activities)
+    .joins(:video)
+    .order(Arel.sql("videos.date DESC NULLS LAST, videos.created_at DESC"))
+    .map do |performance|
       next if performance.activities.blank?
 
       {
@@ -46,6 +49,7 @@ class Performer < ApplicationRecord
         activities: performance.activities.order(:category),
         average: performance.average_activity,
         video_title: performance.video.title,
+        video_date: performance.video&.date,
         date: performance.created_at
       }
     end.compact
