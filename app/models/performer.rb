@@ -4,19 +4,29 @@ class Performer < ApplicationRecord
   validates :name, presence: true
 
   scope :with_latest_activity_average, -> {
-    # サブクエリで各演者の最新パフォーマンスIDを取得
-    latest_performance_ids = joins(:performances)
-      .group("performers.id")
-      .select("performers.id, MAX(performances.id) as latest_performance_id")
+  ranked_performances = joins(performances: :video)
+    .select("performers.id as performer_id,
+             performances.id as performance_id,
+             videos.date as video_date,
+             ROW_NUMBER() OVER (
+               PARTITION BY performers.id
+               ORDER BY videos.date DESC
+             ) as rn")
 
-    # 最新パフォーマンスの活動量平均を計算
-    joins("INNER JOIN (#{latest_performance_ids.to_sql}) latest_perf ON performers.id = latest_perf.id")
-      .joins("INNER JOIN performances ON performances.id = latest_perf.latest_performance_id")
-      .joins("INNER JOIN activities ON activities.performance_id = performances.id")
-      .group("performers.id, performers.name, performances.date")
-      .select("performers.*, AVG(activities.value) as latest_avg_activity, performances.date as latest_date")
-      .order("latest_avg_activity DESC")
-  }
+  latest_performance_ids = from("(#{ranked_performances.to_sql}) ranked")
+    .where("ranked.rn = 1")
+    .select("ranked.performer_id, ranked.performance_id")
+
+  joins("INNER JOIN (#{latest_performance_ids.to_sql}) latest_perf ON performers.id = latest_perf.performer_id")
+    .joins("INNER JOIN performances ON performances.id = latest_perf.performance_id")
+    .joins("INNER JOIN videos ON videos.id = performances.video_id")
+    .joins("INNER JOIN activities ON activities.performance_id = performances.id")
+    .group("performers.id, performers.name, videos.date")
+    .select("performers.*,
+             AVG(activities.value) as latest_avg_activity,
+             videos.date as latest_date")
+    .order("latest_avg_activity DESC")
+}
 
   def average_activity
     return 0 unless activities.exists?
@@ -71,21 +81,18 @@ class Performer < ApplicationRecord
 
   activities = latest_performance.activities
 
-  z_scores = activities.map do |activity|
-    next if activity.value.nil?
-    stat = stats[activity.category]
-    next unless stat && stat[:stddev_value] > 0
-    z_score = (activity.value - stat[:avg_value]) / stat[:stddev_value]
-    { category: activity.category, z_score: z_score }
-  end.compact
+  z_scores = activities.filter_map do |activity|
+  stat = stats[activity.category]
+  next unless activity.value && stat && stat[:stddev_value] > 0
+  { category: activity.category,
+    z_score: (activity.value - stat[:avg_value]) / stat[:stddev_value] }
+end
 
   low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
 
   {
     latest_performance_date: latest_performance.date,
     low_z_count: low_z_count,
-    total_categories: z_scores.size,
-    risk_percentage: z_scores.empty? ? 0 : ((low_z_count.to_f / z_scores.size) * 100).round(1),
     z_scores: z_scores
   }
   end
