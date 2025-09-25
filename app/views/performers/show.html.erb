@@ -30,7 +30,7 @@
                 <% data[:activities].order(value: :desc).limit(5).each do |activity| %>
                   <div class="activity-mini-row">
                     <span class="exercise-name">
-                      <%= @activity_types[activity.category] || "運動#{activity.category + 1}" %>
+                      <%= @activity_types[activity.category] || "運動#{(activity.category || 0) + 1}" %>
                     </span>
                     <span class="activity-value"><%= sprintf("%.2f", activity.value) %></span>
                   </div>

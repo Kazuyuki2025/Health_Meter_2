@@ -44,6 +44,15 @@
                   method: :delete,
                   class: "btn btn-danger btn-sm",
                   data: { turbo_confirm: "本当に削除しますか？" } %>
+
+                  <%= button_to "再解析", reanalyze_video_path(video), 
+                      method: :post,
+                      class: "btn btn-warning btn-sm",
+                      title: "顔検出を再実行します",
+                      data: { 
+                        turbo: false,
+                        turbo_confirm: "再解析を実行しますか？既存のデータは削除されます。"
+                      } %>
             </div>
             
             <!-- 詳細情報 -->
@@ -55,14 +64,6 @@
                     <i class="fas fa-clock"></i> 
                     演者の紐付けが完了すると解析が開始されます
                   </p>
-                  <%= button_to "再解析", reanalyze_video_path(video), 
-                      method: :post,
-                      class: "btn btn-warning btn-sm",
-                      title: "顔検出を再実行します",
-                      data: { 
-                        turbo: false,
-                        turbo_confirm: "再解析を実行しますか？既存のデータは削除されます。"
-                      } %>
                 </div>
               <% when 'analyzing' %>
                 <p class="text-warning mb-0">

@@ -116,7 +116,7 @@
               <div class="card border-primary h-100">
                 <div class="card-body">
                   <div class="d-flex align-items-center mb-3">
-                    <div class="badge bg-primary fs-6 me-3">ID: <%= detected_id %></div>
+                    <div class="badge bg-primary fs-6 me-3">ID: <%= detected_id +1 %></div>
                     <div class="flex-grow-1">
                       <% if performer %>
                         <%= link_to performer.name, video_performance_path(@video, performance_id), 
