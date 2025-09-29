@@ -42,15 +42,13 @@
               <%= button_to "削除", 
                   video_path(video), 
                   method: :delete,
-                  class: "btn btn-danger btn-sm",
+                  class: "btn btn-danger btn-sm me-2",
                   data: { turbo_confirm: "本当に削除しますか？" } %>
-
-                  <%= button_to "再解析", reanalyze_video_path(video), 
+              <%= button_to "再解析", reanalyze_video_path(video), 
                       method: :post,
-                      class: "btn btn-warning btn-sm",
+                      class: "btn btn-info btn-sm",
                       title: "顔検出を再実行します",
                       data: { 
-                        turbo: false,
                         turbo_confirm: "再解析を実行しますか？既存のデータは削除されます。"
                       } %>
             </div>

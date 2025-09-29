@@ -2,7 +2,14 @@
   <div class="row mb-4">
     <div class="col">
       <h1 class="text-black">
-        <%= @performer.name %> の問題のある運動一覧
+        <% @performers_risk_data.each do |data|%>
+        <p>
+        <%= data[:performer_name] %> のパフォーマンス詳細     
+          </p>  
       </h1>
+      <h3 class="text-black">
+        撮影日: <%= data[:latest_video_date]&.strftime("%Y-%m-%d") || "不明" %>
+        <% end %>
+      </h3>
     </div>
     

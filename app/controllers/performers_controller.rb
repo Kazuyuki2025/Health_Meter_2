@@ -66,7 +66,16 @@ class PerformersController < ApplicationController
   end
 
   def unhealthy_risks_detail
-    @performers_risk_data = Performer.sort_by_unhealthy_risk
-    @all_performers_data = Performer.get_all_performers_with_statistics
+    @performer = Performer.find(params[:id])
+
+    latest_performance = @performer.performances
+      .joins(:video)
+      .order(Arel.sql("videos.date DESC NULLS LAST, performances.created_at DESC"))
+      .first
+
+    @performers_risk_data = [ {
+      performer_name: @performer.name,
+      latest_video_date: latest_performance&.video&.date
+    } ]
   end
 end

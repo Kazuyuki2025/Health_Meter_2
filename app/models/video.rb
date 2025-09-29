@@ -1,5 +1,6 @@
 class Video < ApplicationRecord
   has_one_attached :content
+  validates :content, presence: { message: "を選択してください" }
   has_one_attached :thumbnail
 
   has_many :performances, dependent: :destroy

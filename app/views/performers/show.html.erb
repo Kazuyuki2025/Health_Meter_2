@@ -25,22 +25,19 @@
 
             <!-- 運動種目別活動量（簡易表示） -->
             <div class="activities-preview">
-              <h6>運動種目別活動量</h6>
-              <div class="activities-mini-table">
-                <% data[:activities].order(value: :desc).limit(5).each do |activity| %>
-                  <div class="activity-mini-row">
-                    <span class="exercise-name">
-                      <%= @activity_types[activity.category] || "運動#{(activity.category || 0) + 1}" %>
-                    </span>
-                    <span class="activity-value"><%= sprintf("%.2f", activity.value) %></span>
-                  </div>
-                <% end %>
-              </div>
-              
-              <div class="card-actions mt-2">
-                <%= link_to "詳細を見る", video_performance_path(data[:performance].video, data[:performance]), 
-                    class: "btn btn-sm btn-primary" %>
-              </div>
+      <h6>運動種目別活動量</h6>
+      <div class="activities-mini-table">
+        <% activity_values = data[:activities].order(:id).limit(13).pluck(:value) %>
+        <% Activity::ACTIVITY_TYPES.each_with_index do |(index, name), array_index| %>
+          <% value = activity_values[array_index] %>
+          <% if value %>
+            <div class="activity-mini-row">
+              <span class="exercise-name"><%= name %></span>
+              <span class="activity-value"><%= sprintf("%.2f", value) %></span>
+            </div>
+          <% end %>
+        <% end %>
+      </div>
             </div>
           </div>
         <% end %>
@@ -52,14 +49,6 @@
       </div>
     <% end %>
   </div>
-
-  <!-- ナビゲーション -->
-  <div class="actions mt-4">
-    <%= link_to '演者一覧', performers_path, class: 'btn btn-secondary' %>
-    <%= link_to '動画一覧', videos_path, class: 'btn btn-secondary' %>
-    <%= link_to '編集', edit_performer_path(@performer), class: 'btn btn-outline-primary ms-2' %>
-  </div>
-</div>
 
 <style>
 .performer-header {

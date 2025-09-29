@@ -1,7 +1,6 @@
 class Activity < ApplicationRecord
   belongs_to :performance
 
-  validates :category, presence: true
   validates :value, presence: true, numericality: true
 
   # 活動タイプの定義
@@ -23,5 +22,9 @@ class Activity < ApplicationRecord
 
   def self.activity_types
     ACTIVITY_TYPES
+  end
+
+  def self.activity_name(index)
+    ACTIVITY_TYPES[index] || "不明な活動タイプ"
   end
 end

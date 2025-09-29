@@ -26,8 +26,13 @@ class PerformancesController < ApplicationController
     else
       @video = @performance.video
     end
+    @average_activity = @performance.average_activity
     @activity_types = Activity.activity_types
-    @activity_data = @performance.get_activity_data
+    @activity_data = {
+    activities: @performance.activities,  # ActiveRecordの配列
+    average: @performance.average_activity,
+    total: @performance.total_activity
+  }
     @segment_activities = @performance.get_segment_activities
   end
 

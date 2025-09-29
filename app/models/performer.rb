@@ -46,7 +46,7 @@ class Performer < ApplicationRecord
 
       {
         performance: performance,
-        activities: performance.activities.order(:category),
+        activities: performance.activities.order(:id),
         average: performance.average_activity,
         video_title: performance.video.title,
         video_date: performance.video&.date,
@@ -68,37 +68,48 @@ class Performer < ApplicationRecord
   end
 
   def detect_unhealthy_status
-  latest_performance = performances.order(date: :desc).first
-  return nil unless latest_performance
+    latest_performance = performances
+  .joins(:video)
+  .order(videos: { date: :desc }, performances: { created_at: :desc })
+  .first
 
-  previous_activities = Activity.joins(:performance)
-                                .where(performances: { performer_id: id })
-                                .where.not(performance_id: latest_performance.id)
+    return nil unless latest_performance
 
-  stats = previous_activities.group_by(&:category).transform_values do |acts|
-    values = acts.map(&:value).compact # nil を除外
-    next if values.empty?
-    mean = values.sum.to_f / values.size
-    stddev = Math.sqrt(values.map { |v| (v - mean)**2 }.sum / values.size)
-    { avg_value: mean, stddev_value: stddev }
-  end.compact
+    # インデックスベースで過去の活動データを取得
+    previous_performances = performances.where.not(id: latest_performance.id)
 
-  activities = latest_performance.activities
+    # 過去のパフォーマンスから統計を計算（13種類の運動）
+    stats = {}
+    13.times do |index|
+      values = []
+      previous_performances.each do |perf|
+        activity_values = perf.activities.order(:id).limit(13).pluck(:value)
+        values << activity_values[index] if activity_values[index]
+      end
 
-  z_scores = activities.filter_map do |activity|
-  stat = stats[activity.category]
-  next unless activity.value && stat && stat[:stddev_value] > 0
-  { category: activity.category,
-    z_score: (activity.value - stat[:avg_value]) / stat[:stddev_value] }
-end
+      next if values.empty?
+      mean = values.sum.to_f / values.size
+      stddev = Math.sqrt(values.map { |v| (v - mean)**2 }.sum / values.size)
+      stats[index] = { avg_value: mean, stddev_value: stddev }
+    end
 
-  low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+    # 最新パフォーマンスのZ-Scoreを計算
+    latest_values = latest_performance.activities.order(:id).limit(13).pluck(:value)
+    z_scores = []
 
-  {
-    latest_performance_date: latest_performance.date,
-    low_z_count: low_z_count,
-    z_scores: z_scores
-  }
+    latest_values.each_with_index do |value, index|
+      next unless value && stats[index] && stats[index][:stddev_value] > 0
+      z_score = (value - stats[index][:avg_value]) / stats[index][:stddev_value]
+      z_scores << { index: index, z_score: z_score }
+    end
+
+    low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+
+    {
+      latest_performance_date: latest_performance.video.date,
+      low_z_count: low_z_count,
+      z_scores: z_scores
+    }
   end
 
   def self.get_all_performers_with_statistics

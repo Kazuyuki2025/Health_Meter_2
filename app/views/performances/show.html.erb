@@ -32,7 +32,7 @@
   </div>
 
   <!-- 運動種目別詳細 -->
- <div class="segment-details mb-4">
+  <div class="segment-details mb-4">
     <h1 class="activity-title">運動種目別活動量</h1>
     
     <!-- テーブル表示 -->
@@ -45,117 +45,19 @@
           </tr>
         </thead>
         <tbody>
-        <% @segment_activities.each do |category, activities| %>
-          <% value = activities.first.value %>
-          <% exercise_name = @activity_types[category] || "不明な運動 #{category + 1}" %>
+        <% activity_values = @performance.all_activity_values %>
+        <% Activity::ACTIVITY_TYPES.each_with_index do |(index, name), array_index| %>
+          <% value = activity_values[array_index] %>
           <tr>
-            <td><strong><%= exercise_name %></strong></td>
+            <td><strong><%= Activity.activity_name(index) %></strong></td>
             <td><%= sprintf("%.2f", value) %></td>
           </tr>
-          <% end %>
+        <% end %>
         </tbody>
       </table>
     </div>
-
-    <!-- グラフ表示 -->
-    <div class="chart-container mt-4">
-      <canvas id="activityChart" width="800" height="400"></canvas>
-    </div>
-  </div>
-
-  <!-- ナビゲーション -->
-  <div class="actions">
-    <% if @video %>
-      <%= link_to '動画に戻る', @video, class: 'btn btn-secondary' %>
-    <% end %>
-    <%= link_to '編集', edit_performance_path(@performance), class: 'btn btn-outline-primary ms-2' %>
   </div>
 </div>
-
-<!-- Chart.js は application.html.erb で読み込み済み -->
-<script>
-  // Turbo対応：ページ読み込み完了後にChart.jsを初期化
-  document.addEventListener('DOMContentLoaded', function() {
-    initializeChart();
-  });
-  
-  // Turbo遷移後にも対応
-  document.addEventListener('turbo:load', function() {
-    initializeChart();
-  });
-  
-  function initializeChart() {
-    const chartElement = document.getElementById('activityChart');
-    if (!chartElement) return; // 要素が存在しない場合は処理を中断
-    
-    // 既存のチャートがあれば破棄
-    if (window.myChart) {
-      window.myChart.destroy();
-    }
-    
-    const ctx = chartElement.getContext('2d');
-    const activityData = <%= raw @activity_data[:activities].map(&:value).to_json %>;
-    const exerciseNames = <%= raw @activity_data[:activities].map { |a| @activity_types[a.category] || "不明な運動 #{a.category + 1}" }.to_json %>;
-    
-    window.myChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: exerciseNames,
-      datasets: [{
-        label: '活動量',
-        data: activityData,
-        backgroundColor: 'rgba(54, 162, 235, 0.8)',
-        borderColor: 'rgba(54, 162, 235, 1)',
-        borderWidth: 2
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: {
-        title: {
-          display: true,
-          text: 'グラフ',
-          font: {
-            size: 16,
-            weight: 'bold'
-          }
-        },
-        legend: {
-          display: false
-        }
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: {
-            display: true,
-            text: '活動量',
-            font: {
-              weight: 'bold'
-            }
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: '運動種目',
-            font: {
-              weight: 'bold'
-            }
-          },
-          ticks: {
-            maxRotation: 45,
-            minRotation: 0
-          }
-        }
-      },
-      interaction: {
-        intersect: false,
-        mode: 'index'
-      }
-    });
-  }
-</script>
 
 <style>
 .performance-header {
@@ -188,13 +90,6 @@
   font-weight: bold;
   color: #007bff;
   margin: 0;
-}
-
-.chart-container {
-  background: white;
-  padding: 2rem;
-  border: 1px solid #ddd;
-  border-radius: 10px;
 }
 
 .actions {

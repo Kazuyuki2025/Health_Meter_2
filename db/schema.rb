@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_25_075352) do
+ActiveRecord::Schema[8.0].define(version: 2025_09_29_013526) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -44,7 +44,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_25_075352) do
     t.float "value"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.integer "category"
     t.index ["performance_id"], name: "index_activities_on_performance_id"
   end
 

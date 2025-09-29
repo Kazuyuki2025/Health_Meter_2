@@ -84,12 +84,9 @@ class DetectVideoJob < ApplicationJob
       segment_values.each_with_index do |value, segment_index|
         Activity.create!(
           performance: performance,
-          category: segment_index,  # セグメント番号をcategoryに
-          value: value.to_f
+          value: value
         )
       end
-
-      Rails.logger.info "Person #{person_id}: #{segment_values.size}個のセグメントをActivityに保存"
     end
   end
 end
