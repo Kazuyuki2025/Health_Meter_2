@@ -68,47 +68,67 @@ class Performer < ApplicationRecord
   end
 
   def detect_unhealthy_status
-    latest_performance = performances
-  .joins(:video)
-  .order(videos: { date: :desc }, performances: { created_at: :desc })
-  .first
+  latest_performance = performances
+    .joins(:video)
+    .order(videos: { date: :desc }, performances: { created_at: :desc })
+    .first
 
-    return nil unless latest_performance
+  return nil unless latest_performance
 
-    # インデックスベースで過去の活動データを取得
-    previous_performances = performances.where.not(id: latest_performance.id)
+  # インデックスベースで過去の活動データを取得
+  previous_performances = performances.where.not(id: latest_performance.id)
 
-    # 過去のパフォーマンスから統計を計算（13種類の運動）
-    stats = {}
-    13.times do |index|
-      values = []
-      previous_performances.each do |perf|
-        activity_values = perf.activities.order(:id).limit(13).pluck(:value)
-        values << activity_values[index] if activity_values[index]
-      end
-
-      next if values.empty?
-      mean = values.sum.to_f / values.size
-      stddev = Math.sqrt(values.map { |v| (v - mean)**2 }.sum / values.size)
-      stats[index] = { avg_value: mean, stddev_value: stddev }
+  # 過去のパフォーマンスから統計を計算（13種類の運動）
+  stats = {}
+  13.times do |index|
+    values = []
+    previous_performances.each do |perf|
+      activity_values = perf.activities.order(:id).limit(13).pluck(:value)
+      values << activity_values[index] if activity_values[index]
     end
 
-    # 最新パフォーマンスのZ-Scoreを計算
-    latest_values = latest_performance.activities.order(:id).limit(13).pluck(:value)
-    z_scores = []
+    next if values.empty?
+    mean = values.sum.to_f / values.size
+    stddev = Math.sqrt(values.map { |v| (v - mean)**2 }.sum / values.size)
+    stats[index] = { avg_value: mean, stddev_value: stddev }
+  end
 
-    latest_values.each_with_index do |value, index|
-      next unless value && stats[index] && stats[index][:stddev_value] > 0
+  # 最新パフォーマンスのZ-Scoreを計算
+  latest_values = latest_performance.activities.order(:id).limit(13).pluck(:value)
+  z_scores = []
+
+  latest_values.each_with_index do |value, index|
+    if value && stats[index] && stats[index][:stddev_value] > 0
       z_score = (value - stats[index][:avg_value]) / stats[index][:stddev_value]
-      z_scores << { index: index, z_score: z_score }
+      z_scores << {
+        index: index,
+        actual_value: value,
+        average_value: stats[index][:avg_value],
+        z_score: z_score
+      }
     end
+  end
 
-    low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+  low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+
+  {
+    latest_performance_date: latest_performance.video.date,
+    low_z_count: low_z_count,
+    z_scores: z_scores
+  }
+  end
+
+  def get_statistics_data
+    stats = detect_unhealthy_status
 
     {
-      latest_performance_date: latest_performance.video.date,
-      low_z_count: low_z_count,
-      z_scores: z_scores
+      performer: self,
+      performer_id: id,
+      performer_name: name,
+      average_activity: average_activity,
+      total_performances: performances.count,
+      statistics: stats,
+      z_scores: stats ? stats[:z_scores] : []
     }
   end
 
@@ -116,21 +136,17 @@ class Performer < ApplicationRecord
     performers = Performer.includes(performances: :activities)
 
     performers.map do |performer|
-      stats = performer.detect_unhealthy_status
-
-      {
-        performer: performer,
-        performer_id: performer.id,
-        performer_name: performer.name,
-        average_activity: performer.average_activity,
-        total_performances: performer.performances.count,
-        statistics: stats
-      }
+      performer.get_statistics_data
     end
   end
 
   def self.get_performers_with_valid_statistics
-    get_all_performers_with_statistics.select { |data| data[:statistics] }
+    performers = Performer.includes(performances: :activities)
+
+    performers.filter_map do |performer|
+      data = performer.get_statistics_data
+      data if data[:statistics]  # statisticsがnilでない場合のみ返す
+    end
   end
 
   # リスク順（low_z_countが多い順）でソート

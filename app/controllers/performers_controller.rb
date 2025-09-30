@@ -67,15 +67,12 @@ class PerformersController < ApplicationController
 
   def unhealthy_risks_detail
     @performer = Performer.find(params[:id])
+    @statistics = @performer.detect_unhealthy_status
 
-    latest_performance = @performer.performances
-      .joins(:video)
-      .order(Arel.sql("videos.date DESC NULLS LAST, performances.created_at DESC"))
-      .first
-
-    @performers_risk_data = [ {
-      performer_name: @performer.name,
-      latest_video_date: latest_performance&.video&.date
-    } ]
+    unless @statistics
+      flash[:alert] = "統計データが不足しています"
+      redirect_to performers_path
+      nil
+    end
   end
 end
