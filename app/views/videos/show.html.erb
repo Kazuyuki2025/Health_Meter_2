@@ -59,7 +59,7 @@
 
         <!-- 演者選択フォーム -->
         <%= form_with url: assign_performers_video_path(@video), method: :post, local: true do |performer_form| %>
-          <h5 class="mb-3">IDと演者を紐付けてください:</h5>
+          <h5 class="mb-3">IDと演者を紐付けてください</h5>
           
           <div class="row g-3">
             <% @detected_ids.each_with_index do |detected_id, index| %>

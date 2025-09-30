@@ -54,14 +54,12 @@ class VideosController < ApplicationController
     result = service.call
 
     if result.success?
-      @detected_ids = result.detected_ids
+      flash[:detected_ids] = result.detected_ids
       @images = result.images
       @performers = Performer.all
-      flash.now[:notice] = result.notice_msg
-      render :show
+      redirect_to @video, notice: "再解析を開始します。演者を紐付けてください。"
     else
-      flash[:alert] = result.error_message
-      redirect_to @video
+      redirect_to @video, alert: result.error_message
     end
   end
 
@@ -80,7 +78,7 @@ class VideosController < ApplicationController
     @performances = @video.performances.includes(:performer)
 
     # 活動量データの計算
-    @detected_ids = @video.get_detected_ids
+    @detected_ids = flash[:detected_ids] || @video.get_detected_ids
     @activity_data = @video.get_all_activities
     @overall_stats = @video.calculate_overall_stats
   end

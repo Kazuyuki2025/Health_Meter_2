@@ -47,6 +47,7 @@ class Video < ApplicationRecord
 
   def assign_performer(detected_id, performer_id)
     return if performer_id.blank?
+    Rails.logger.info "Assigning performer_id #{performer_id} to detected_id #{detected_id} in video #{id}"
 
     performances.find_or_create_by(performer_id: performer_id) do |p|
       p.date = Date.current.to_s
