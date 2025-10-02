@@ -106,8 +106,7 @@
       <div class="card-body">
         
         <div class="row g-3">
-          <% @detected_ids.each_with_index do |detected_id, index| %>
-            <% data = @activity_data[index] rescue nil %>
+          <% @activity_data.each_with_index do |data, index| %>
             <% performer = data[:performer] if data %>
             <% performance_id = data[:performance_id] if data %>
             <% avg_activity = data[:average] if data %>  
@@ -116,7 +115,7 @@
               <div class="card border-primary h-100">
                 <div class="card-body">
                   <div class="d-flex align-items-center mb-3">
-                    <div class="badge bg-primary fs-6 me-3">ID: <%= detected_id +1 %></div>
+                    <div class="badge bg-primary fs-6 me-3">ID: <%= index + 1 %></div>
                     <div class="flex-grow-1">
                       <% if performer %>
                         <%= link_to performer.name, video_performance_path(@video, performance_id), 

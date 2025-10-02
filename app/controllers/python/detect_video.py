@@ -167,10 +167,6 @@ for i in range(frame_count):
                 analysis_results[ids] = []
             analysis_results[ids].append(evaluation)
 
-        # デバッグ出力: フレーム処理後に表示
-        if played_frame >= start_frame + 2:
-            print(f"Frame {played_frame}: Evaluation = {evaluation:.2f}, ID = {ids}", file=sys.stderr)
-
     # Update previous coordinates
     for id in baseline_ids:
         if id not in current_ids:

@@ -15,7 +15,13 @@ class Video < ApplicationRecord
   }, validate: true
 
   def get_detected_ids
-    performances.map.with_index { |_, index| index }
+    # 既存のパフォーマンスから推測
+    if performances.any?
+      performances.pluck(:id)
+    else
+      # デフォルト値またはnil
+      []
+    end
   end
 
   def get_all_activities

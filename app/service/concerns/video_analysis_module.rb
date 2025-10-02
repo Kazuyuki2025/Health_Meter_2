@@ -12,9 +12,9 @@ module VideoAnalysisModule
 
     command = "python3 #{script_path} #{video.id} #{Shellwords.escape(video_path)}"
     Rails.logger.info "解析コマンド実行: #{command}"
-    
+
     @stdout, @stderr, @status = Open3.capture3(command)
-    
+
     Rails.logger.info "解析結果 - stdout: #{@stdout}"
     Rails.logger.error "解析結果 - stderr: #{@stderr}" if @stderr.present?
   end
@@ -55,12 +55,12 @@ module VideoAnalysisModule
 
   def perform_analysis
     analyze_first_frame
-    
+
     if @status.success?
       result = parse_analysis_result(@stdout)
       @detected_ids = result[:detected_ids]
       @thumbnail_path_line = result[:thumbnail_path_line]
-      
+
       attach_thumbnail_from_analysis
       true
     else

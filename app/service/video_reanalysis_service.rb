@@ -24,7 +24,7 @@ class VideoReanalysisService
   def perform_reanalysis
     # 既存のパフォーマンスデータを削除
     video.performances.destroy_all
-    
+
     # ステータスをpendingに戻す
     video.update(analysis_status: :pending)
 
