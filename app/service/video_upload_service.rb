@@ -433,4 +433,18 @@ class VideoUploadService
       Rails.logger.error "ffprobeエラー: #{stderr}"
     end
   end
+
+  def fallback_to_file_date(file_path)
+    Rails.logger.info "ファイルの作成日時を使用: #{file_path}"
+
+    begin
+      # ファイルの最終更新日時を取得
+      file_date = File.mtime(file_path)
+      Rails.logger.info "File.mtime から取得した日時: #{file_date}"
+      file_date.to_date
+    rescue => e
+      Rails.logger.error "fallback_to_file_date でエラー発生: #{e.message}"
+      Date.current
+    end
+  end
 end

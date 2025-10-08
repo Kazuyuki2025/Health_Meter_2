@@ -31,6 +31,7 @@ parser.add_argument('--model', help='Set model_data', default='model/yolov8n.pt'
 parser.add_argument('--framesize', type=tp, help='Set width and height of framesize', default='1920,1080')
 parser.add_argument('--start', help='Set start of frame', type=int, default=2)
 parser.add_argument('--end', help='Set end of frame', type=int, default=0)
+parser.add_argument('--segments', help='Set number of segments to divide (0 means no division)', type=int, default=13)
 parser.add_argument('input', help='Input video data', default=f'input_data/{dt_now}.mp4')
 
 parser.usage = parser.format_help()
@@ -46,6 +47,7 @@ input_file = args.input
 model_data = args.model
 start_frame = args.start
 end_frame = args.end
+num_segments = args.segments  # 追加: 分割数
 validation = OUTLIER
 
 # Load learning model
@@ -174,22 +176,75 @@ for i in range(frame_count):
             current_coordinates[id] = previous_coordinates.get(id, (0, 0, 0, 0))
     previous_coordinates = current_coordinates
 
-# Calculate averages for the last segments
+# Calculate averages based on segment configuration
 averaged_results = {}
+frame_information = {}
+
 for obj_id, evaluations in analysis_results.items():
-    if len(evaluations) > 13:
-        segment_length = len(evaluations) // 13
-        averaged_results[obj_id] = [
-            sum(evaluations[i * segment_length:(i + 1) * segment_length]) / segment_length
-            for i in range(13)
-        ]
-    else:
+    if num_segments == 0:
+        # 分割しない場合: 全体の平均を1つだけ
         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
+        frame_information[obj_id] = [{
+            'segment': 0,
+            'start_frame': start_frame + frame_baseline_limit,
+            'end_frame': start_frame + frame_baseline_limit + len(evaluations) - 1
+        }]
+        print(f"ID {obj_id}: No division, using overall average", file=sys.stderr)
+        
+    elif len(evaluations) >= num_segments:
+        # 指定された分割数で分割
+        segment_length = len(evaluations) // num_segments
+        averaged_results[obj_id] = []
+        frame_information[obj_id] = []
+        
+        print(f"ID {obj_id}: Dividing {len(evaluations)} frames into {num_segments} segments", file=sys.stderr)
+        
+        for i in range(num_segments):
+            start_idx = i * segment_length
+            end_idx = (i + 1) * segment_length - 1 if i < num_segments - 1 else len(evaluations) - 1
+            
+            segment_values = evaluations[start_idx:end_idx + 1]
+            average_value = sum(segment_values) / len(segment_values)
+            
+            averaged_results[obj_id].append(average_value)
+            frame_information[obj_id].append({
+                'segment': i,
+                'start_frame': start_frame + frame_baseline_limit + start_idx,
+                'end_frame': start_frame + frame_baseline_limit + end_idx
+            })
+            
+    else:
+        # データが分割数より少ない場合: 全体の平均を使用
+        averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
+        frame_information[obj_id] = [{
+            'segment': 0,
+            'start_frame': start_frame + frame_baseline_limit,
+            'end_frame': start_frame + frame_baseline_limit + len(evaluations) - 1,
+            'requested_segments': num_segments,
+            'actual_segments': 1,
+            'reason': 'insufficient_data'
+        }]
+        print(f"ID {obj_id}: Insufficient data for {num_segments} segments, using overall average", file=sys.stderr)
 
 print("--- Averages per segment ---", file=sys.stderr)
+print(f"Segmentation mode: {num_segments} segments" if num_segments > 0 else "No segmentation", file=sys.stderr)
 for obj_id, averages in averaged_results.items():
     print(f"ID: {obj_id}, Averages: {averages}", file=sys.stderr)
+    print(f"ID: {obj_id}, Frames: {frame_information[obj_id]}", file=sys.stderr)
 print("---end---", file=sys.stderr)
 
+# 出力データに分割設定情報を追加
 safe_results = {str(obj_id): [float(v) for v in averages] for obj_id, averages in averaged_results.items()}
-print(json.dumps({"averaged_results": safe_results}))
+safe_frame_results = {str(obj_id): frames for obj_id, frames in frame_information.items()}
+
+output_data = {
+    "averaged_results": safe_results,
+    "frame_information": safe_frame_results,
+    "analysis_config": {
+        "segments": num_segments,
+        "segmentation_enabled": num_segments > 0,
+        "total_ids": len(averaged_results)
+    }
+}
+
+print(json.dumps(output_data))
