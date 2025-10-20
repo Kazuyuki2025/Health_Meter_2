@@ -69,6 +69,14 @@ cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+# --- ここから追加 ---
+# 動画フレームの対角線の長さを計算
+frame_diagonal = math.sqrt(frame_width**2 + frame_height**2)
+if frame_diagonal == 0:
+    print("Error: Frame width and height are zero.", file=sys.stderr)
+    exit()
+# --- ここまで追加 ---
+
 print("---start---")
 
 # Initialize detected_data array
@@ -93,6 +101,9 @@ frame_skip = 1 # ここで何フレームごとに処理するか指定
 print(f"Processing every {frame_skip} frames", file=sys.stderr)
 print(f"Start frame: {start_frame}, End frame: {end_frame}", file=sys.stderr)
 
+# 新規追加: フレームごとの検出結果を保存するリスト
+frame_detections = []
+
 for i in range(frame_count):
     ret, frame = cap.read()
     played_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
@@ -112,8 +123,12 @@ for i in range(frame_count):
 
     current_ids = set()
     current_coordinates = {}
+    
     for box, cls in zip(boxes, classes):
-        x1, x2, y1, y2 = [int(i) for i in box.xyxy[0]]
+        x1, y1, x2, y2 = [int(i) for i in box.xyxy[0]]
+        print(f"Frame {played_frame}: box coordinates: ({x1}, {y1}), ({x2}, {y2})", file=sys.stderr)
+        width = max(1, x2 - x1)
+        height = max(1, y2 - y1)
         name = names[int(cls)]
         if box.id is not None:
             ids = int(box.id[0])
@@ -137,30 +152,48 @@ for i in range(frame_count):
             if closest_id is not None:
                 ids = closest_id
             else:
-                print(f"Frame {played_frame}: Over-detection, skipping ID {ids}")
+                print(f"Frame {played_frame}: Over-detection, skipping ID {ids}", file=sys.stderr)
                 continue
 
         current_ids.add(ids)
         current_coordinates[ids] = (x1, x2, y1, y2)
+        
+        # ハイブリッド正規化
+        base_vx1 = abs(x1 - coordinate[ids][0]) / frame_diagonal
+        base_vx2 = abs(x2 - coordinate[ids][1]) / frame_diagonal
+        base_vy1 = abs(y1 - coordinate[ids][2]) / frame_diagonal
+        base_vy2 = abs(y2 - coordinate[ids][3]) / frame_diagonal
+        
+        current_bbox_size = math.sqrt(width * height)
+        bbox_ratio = current_bbox_size / frame_diagonal
+        distance_correction = 1.0 / max(0.05, bbox_ratio)
+        
+        normalized_vx1 = 100 * base_vx1 * distance_correction
+        normalized_vx2 = 100 * base_vx2 * distance_correction
+        normalized_vy1 = 100 * base_vy1 * distance_correction
+        normalized_vy2 = 100 * base_vy2 * distance_correction
 
-        velocity[ids][0], velocity[ids][1], velocity[ids][2], velocity[ids][3] = \
-            abs(x1-coordinate[ids][0]), abs(x2-coordinate[ids][1]), abs(y1-coordinate[ids][2]), abs(y2-coordinate[ids][3])
+        velocity[ids] = [normalized_vx1, normalized_vx2, normalized_vy1, normalized_vy2]
 
         match detect_type:
             case 1:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + abs(velocity[ids][1] - pre_velocity[ids][1]) + abs(velocity[ids][2] \
-                             - pre_velocity[ids][2]) + abs(velocity[ids][3] - pre_velocity[ids][3])
+                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
+                           abs(velocity[ids][1] - pre_velocity[ids][1]) + \
+                           abs(velocity[ids][2] - pre_velocity[ids][2]) + \
+                           abs(velocity[ids][3] - pre_velocity[ids][3])
             case 2:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + abs(velocity[ids][1] - pre_velocity[ids][1]) + abs(velocity[ids][2] \
-                             - pre_velocity[ids][2]) + abs(velocity[ids][3] - pre_velocity[ids][3])
+                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
+                           abs(velocity[ids][1] - pre_velocity[ids][1]) + \
+                           abs(velocity[ids][2] - pre_velocity[ids][2]) + \
+                           abs(velocity[ids][3] - pre_velocity[ids][3])
             case _:
                 print("Please select a specific type")
 
-        # Mark outlier if evaluation exceeds 30
         if evaluation > 100:
             evaluation = 0.00
 
         coordinate[ids] = box.xyxy[0]
+        pre_velocity[ids] = velocity[ids]
         activity_average[ids] = activity_average[ids] + evaluation
 
         # Store results for averaging
@@ -168,11 +201,21 @@ for i in range(frame_count):
             if ids not in analysis_results:
                 analysis_results[ids] = []
             analysis_results[ids].append(evaluation)
+            
+            # 新規追加: フレームごとの検出データを保存
+            frame_detections.append({
+                "frame_number": played_frame,
+                "person_id": ids,
+                "x1": x1,
+                "y1": y1,
+                "x2": x2,
+                "y2": y2,
+                "activity_value": float(evaluation)
+            })
 
     # Update previous coordinates
     for id in baseline_ids:
         if id not in current_ids:
-            # Retain the last known position of IDs not detected in the current frame
             current_coordinates[id] = previous_coordinates.get(id, (0, 0, 0, 0))
     previous_coordinates = current_coordinates
 
@@ -182,7 +225,6 @@ frame_information = {}
 
 for obj_id, evaluations in analysis_results.items():
     if num_segments == 0:
-        # 分割しない場合: 全体の平均を1つだけ
         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
         frame_information[obj_id] = [{
             'segment': 0,
@@ -192,7 +234,6 @@ for obj_id, evaluations in analysis_results.items():
         print(f"ID {obj_id}: No division, using overall average", file=sys.stderr)
         
     elif len(evaluations) >= num_segments:
-        # 指定された分割数で分割
         segment_length = len(evaluations) // num_segments
         averaged_results[obj_id] = []
         frame_information[obj_id] = []
@@ -214,7 +255,6 @@ for obj_id, evaluations in analysis_results.items():
             })
             
     else:
-        # データが分割数より少ない場合: 全体の平均を使用
         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
         frame_information[obj_id] = [{
             'segment': 0,
@@ -233,18 +273,26 @@ for obj_id, averages in averaged_results.items():
     print(f"ID: {obj_id}, Frames: {frame_information[obj_id]}", file=sys.stderr)
 print("---end---", file=sys.stderr)
 
-# 出力データに分割設定情報を追加
+# 出力データの準備
 safe_results = {str(obj_id): [float(v) for v in averages] for obj_id, averages in averaged_results.items()}
 safe_frame_results = {str(obj_id): frames for obj_id, frames in frame_information.items()}
 
+# 最終的なJSON出力（frame_detectionsを追加）
 output_data = {
     "averaged_results": safe_results,
     "frame_information": safe_frame_results,
+    "frame_detections": frame_detections,  # 追加
     "analysis_config": {
         "segments": num_segments,
         "segmentation_enabled": num_segments > 0,
-        "total_ids": len(averaged_results)
+        "total_ids": len(averaged_results),
+        "total_frames": len(frame_detections)  # 追加
     }
 }
 
+# detections.jsonは削除（不要）
+# with open("detections.json", "w") as f:
+#     json.dump(detections_list, f, indent=2, ensure_ascii=False)
+
+# 標準出力に出力
 print(json.dumps(output_data))

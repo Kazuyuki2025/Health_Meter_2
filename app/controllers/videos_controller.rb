@@ -1,6 +1,7 @@
 require "open3"
 
 class VideosController < ApplicationController
+  before_action :set_video, only: [ :player, :frame_data, :all_frames_data ]
   def new
     @video = Video.new
   end
@@ -83,28 +84,64 @@ class VideosController < ApplicationController
     @overall_stats = @video.calculate_overall_stats
   end
 
+  def player
+    unless @video.analysis_status == "completed"
+      redirect_to @video, alert: "動画の解析が完了していません"
+      return
+    end
 
-  def edit
+    unless @video.detections.exists?
+      redirect_to @video, alert: "検出データが存在しません"
+      nil
+    end
+  end
+
+  def frame_data
+    frame_number = params[:frame_number].to_i
+
+    detections = @video.detections
+                      .where(frame_number: frame_number)
+                      .map do |d|
+      {
+        frameNumber: d.frame_number,
+        x1: d.x1.to_i,
+        y1: d.y1.to_i,
+        x2: d.x2.to_i,
+        y2: d.y2.to_i,
+        activityValue: d.activity&.round(2)
+      }
+    end
+
+    render json: { detections: detections }
+  end
+
+  def all_frames_data
+    frames_data = @video.detections
+                        .order(:frame_number)
+                        .group_by(&:frame_number)
+                        .transform_values do |detections|
+      detections.map do |d|
+        {
+          frameNumber: d.frame_number,
+          x1: d.x1.to_i,
+          y1: d.y1.to_i,
+          x2: d.x2.to_i,
+          y2: d.y2.to_i,
+          activityValue: d.activity&.round(2)
+        }
+      end
+    end
+
+    render json: {
+      frames: frames_data,
+      totalFrames: @video.detections.maximum(:frame_number) || 0,
+      totalDetections: @video.detections.count
+    }
+  end
+
+  private
+
+  def set_video
     @video = Video.find(params[:id])
-  end
-
-  def update
-  @video = Video.find(params[:id])
-  if @video.update(video_params)
-    redirect_to videos_path, notice: "動画情報を更新しました"
-  else
-    render :edit, status: :unprocessable_entity
-  end
-  rescue ActiveRecord::RecordNotFound
-  redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
-  end
-
-  def destroy
-    @video = Video.find(params[:id])
-    @video.destroy
-
-    redirect_to videos_path, notice: "動画を削除しました", status: :see_other
-  rescue ActiveRecord::RecordNotFound
-    redirect_to videos_path, alert: "動画が見つかりません", status: :not_found
   end
 end

@@ -3,6 +3,9 @@ Rails.application.routes.draw do
     member do
       post :assign_performers
       post :reanalyze
+      get :frame_data
+      get :all_frames_data
+      get :player
     end
     resources :performances, only: [ :show, :edit, :update ]
   end

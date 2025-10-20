@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_09_29_025406) do
+ActiveRecord::Schema[8.0].define(version: 2025_10_20_054939) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -49,6 +49,19 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_29_025406) do
     t.index ["performance_id"], name: "index_activities_on_performance_id"
   end
 
+  create_table "detections", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.integer "frame_number"
+    t.float "x1"
+    t.float "y1"
+    t.float "x2"
+    t.float "y2"
+    t.integer "video_id", null: false
+    t.float "activity"
+    t.index ["video_id"], name: "index_detections_on_video_id"
+  end
+
   create_table "performances", force: :cascade do |t|
     t.string "date"
     t.integer "performer_id", null: false
@@ -72,12 +85,14 @@ ActiveRecord::Schema[8.0].define(version: 2025_09_29_025406) do
     t.string "title"
     t.string "analysis_status", default: "pending"
     t.date "date"
+    t.json "motion_heatmap"
     t.index ["analysis_status"], name: "index_videos_on_analysis_status"
   end
 
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "activities", "performances"
+  add_foreign_key "detections", "videos"
   add_foreign_key "performances", "performers"
   add_foreign_key "performances", "videos"
 end
