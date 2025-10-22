@@ -13,9 +13,10 @@ class VideoPlayerWithBBox {
     
     this.framesData = {};
     this.currentFrame = 0;
-    this.fps = 60; // 動画のFPS（必要に応じて調整）
+    this.fps = 30; // 動画のFPS（解析時のFPSに合わせる）
     this.showBbox = true;
     this.showLabels = true;
+    this.isPlaying = false;
     
     this.colors = ['#00ff00', '#ff0000', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
     
@@ -23,20 +24,20 @@ class VideoPlayerWithBBox {
   }
   
   async init() {
-    // キャンバスのサイズを動画に合わせる
+    // 動画サイズに合わせてキャンバスを設定
     this.video.addEventListener('loadedmetadata', () => {
       this.resizeCanvas();
     });
     
-    // 動画のリサイズ時にキャンバスも調整
+    // ウィンドウサイズ変更時にキャンバスをリサイズ
     window.addEventListener('resize', () => {
       this.resizeCanvas();
     });
     
-    // 全フレームデータを読み込み
+    // 全フレームの検出データを読み込み
     await this.loadAllFramesData();
     
-    // イベントリスナー設定
+    // 各種イベント登録
     this.setupEventListeners();
     
     // 初期描画
@@ -44,16 +45,13 @@ class VideoPlayerWithBBox {
   }
   
   resizeCanvas() {
-    // 動画の表示サイズを取得
     const rect = this.video.getBoundingClientRect();
     this.canvas.width = rect.width;
     this.canvas.height = rect.height;
     
-    // 動画の実際のサイズ
     this.videoWidth = this.video.videoWidth;
     this.videoHeight = this.video.videoHeight;
     
-    // スケール計算
     this.scaleX = rect.width / this.videoWidth;
     this.scaleY = rect.height / this.videoHeight;
     
@@ -78,14 +76,24 @@ class VideoPlayerWithBBox {
   }
   
   setupEventListeners() {
-    // 動画の時間更新イベント
-    this.video.addEventListener('timeupdate', () => {
-      this.currentFrame = Math.floor(this.video.currentTime * this.fps);
+    // 再生中は描画ループを回す
+    this.video.addEventListener('play', () => {
+      this.isPlaying = true;
+      this.renderLoop();
+    });
+    
+    // 一時停止で描画ループを止める
+    this.video.addEventListener('pause', () => {
+      this.isPlaying = false;
+    });
+    
+    // シークした時も即座に再描画
+    this.video.addEventListener('seeked', () => {
       this.updateCanvas();
       this.updateUI();
     });
     
-    // Bounding Box表示切り替え
+    // BBox表示切り替えボタン
     const toggleBboxBtn = document.getElementById('toggleBbox');
     if (toggleBboxBtn) {
       toggleBboxBtn.addEventListener('click', () => {
@@ -97,7 +105,7 @@ class VideoPlayerWithBBox {
       });
     }
     
-    // ラベル表示切り替え
+    // ラベル表示切り替えボタン
     const toggleLabelsBtn = document.getElementById('toggleLabels');
     if (toggleLabelsBtn) {
       toggleLabelsBtn.addEventListener('click', () => {
@@ -108,21 +116,26 @@ class VideoPlayerWithBBox {
         this.updateCanvas();
       });
     }
-    
-    // 動画の再生/一時停止でも再描画
-    this.video.addEventListener('play', () => this.updateCanvas());
-    this.video.addEventListener('pause', () => this.updateCanvas());
-    this.video.addEventListener('seeked', () => this.updateCanvas());
+  }
+  
+  // 🔁 再生中に滑らかに描画更新するループ
+  renderLoop() {
+    if (!this.isPlaying) return;
+
+    this.currentFrame = Math.floor(this.video.currentTime * this.fps);
+    this.updateCanvas();
+    this.updateUI();
+
+    // 次のフレームをリクエスト
+    requestAnimationFrame(() => this.renderLoop());
   }
   
   updateUI() {
-    // フレーム情報を更新
     const frameInfo = document.getElementById('frameInfo');
     if (frameInfo) {
       frameInfo.textContent = `Frame: ${this.currentFrame}`;
     }
     
-    // 検出数を更新
     const detectionCount = document.getElementById('detectionCount');
     if (detectionCount) {
       const detections = this.framesData[this.currentFrame] || [];
@@ -131,15 +144,10 @@ class VideoPlayerWithBBox {
   }
   
   updateCanvas() {
-    // キャンバスをクリア
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
     if (!this.showBbox) return;
     
-    // 現在のフレームの検出データを取得
     const detections = this.framesData[this.currentFrame] || [];
-    
-    // 各検出結果を描画
     detections.forEach((detection, index) => {
       this.drawBoundingBox(detection, index);
     });
@@ -148,7 +156,6 @@ class VideoPlayerWithBBox {
   drawBoundingBox(detection, index) {
     const { x1, y1, x2, y2, activityValue } = detection;
     
-    // 座標をキャンバスのスケールに変換
     const scaledX1 = x1 * this.scaleX;
     const scaledY1 = y1 * this.scaleY;
     const scaledX2 = x2 * this.scaleX;
@@ -157,25 +164,19 @@ class VideoPlayerWithBBox {
     const width = scaledX2 - scaledX1;
     const height = scaledY2 - scaledY1;
     
-    // 色を選択（検出順に色を割り当て）
     const color = this.colors[index % this.colors.length];
     
-    // 矩形を描画
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 3;
     this.ctx.strokeRect(scaledX1, scaledY1, width, height);
     
-    // ラベルを描画
     if (this.showLabels && activityValue !== undefined) {
       const label = `Activity: ${activityValue.toFixed(2)}`;
-      
-      // ラベル背景
       this.ctx.fillStyle = color;
       const labelWidth = 150;
       const labelHeight = 25;
       this.ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
       
-      // ラベルテキスト
       this.ctx.fillStyle = '#ffffff';
       this.ctx.font = 'bold 14px Arial';
       this.ctx.fillText(label, scaledX1 + 5, scaledY1 - 7);
@@ -183,7 +184,13 @@ class VideoPlayerWithBBox {
   }
 }
 
-// ページ読み込み時に初期化
+document.addEventListener('turbo:load', () => {
+  if (document.getElementById('videoPlayer')) {
+    new VideoPlayerWithBBox();
+  }
+});
+
+// ページロード時に自動初期化
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('videoPlayer')) {
     new VideoPlayerWithBBox();

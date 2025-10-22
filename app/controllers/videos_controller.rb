@@ -1,7 +1,7 @@
 require "open3"
 
 class VideosController < ApplicationController
-  before_action :set_video, only: [ :player, :frame_data, :all_frames_data ]
+  before_action :set_video, only: [ :edit, :update, :show, :destroy, :player, :frame_data, :all_frames_data ]
   def new
     @video = Video.new
   end
@@ -139,6 +139,22 @@ class VideosController < ApplicationController
     }
   end
 
+  def edit
+    @video = Video.find(params[:id])
+  end
+
+  def update
+    if @video.update(video_params)
+      redirect_to @video, notice: "更新しました"
+    else
+      render :edit
+    end
+  end
+
+  def destroy
+    @video.destroy
+    redirect_to videos_path, notice: "動画を削除しました"
+  end
   private
 
   def set_video
