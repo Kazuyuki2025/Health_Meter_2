@@ -116,10 +116,25 @@ class VideosController < ApplicationController
   end
 
   def all_frames_data
-    frames_data = @video.detections
-                        .order(:frame_number)
-                        .group_by(&:frame_number)
-                        .transform_values do |detections|
+    # JOINで演者情報を取得
+    detections_with_performers = @video.detections
+                                       .left_joins(
+                                         "LEFT JOIN performances ON
+                                          detections.video_id = performances.video_id AND
+                                          detections.person_id = performances.person_id"
+                                       )
+                                       .left_joins(
+                                         "LEFT JOIN performers ON performances.performer_id = performers.id"
+                                       )
+                                       .select(
+                                         "detections.*",
+                                         "performers.name as performer_name"
+                                       )
+                                       .order(:frame_number)
+
+    frames_data = detections_with_performers
+                    .group_by(&:frame_number)
+                    .transform_values do |detections|
       detections.map do |d|
         {
           frameNumber: d.frame_number,
@@ -127,15 +142,25 @@ class VideosController < ApplicationController
           y1: d.y1.to_i,
           x2: d.x2.to_i,
           y2: d.y2.to_i,
-          activityValue: d.activity&.round(2)
+          activityValue: d.activity&.round(2),
+          personId: d.person_id,
+          performerName: d.try(:performer_name)
         }
       end
+    end
+
+    # 演者ごとの色情報を生成
+    performer_colors = {}
+    colors = [ "#00ff00", "#ff0000", "#0000ff", "#ffff00", "#ff00ff", "#00ffff" ]
+    @video.performances.includes(:performer).each_with_index do |performance, index|
+      performer_colors[performance.performer.name] = colors[index % colors.length] if performance.performer
     end
 
     render json: {
       frames: frames_data,
       totalFrames: @video.detections.maximum(:frame_number) || 0,
-      totalDetections: @video.detections.count
+      totalDetections: @video.detections.count,
+      performerColors: performer_colors
     }
   end
 

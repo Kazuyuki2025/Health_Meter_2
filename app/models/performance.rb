@@ -3,6 +3,11 @@ class Performance < ApplicationRecord
   belongs_to :video
   has_many :activities, dependent: :destroy
 
+  # person_idに基づいて関連する検出データを取得
+  def detections
+    Detection.where(video_id: video_id, person_id: person_id)
+  end
+
   def activity_by_index(index)
     activities.limit(13).offset(0)[index]
   end
@@ -60,5 +65,29 @@ class Performance < ApplicationRecord
     end
 
     segments
+  end
+
+  # BBox基準値を更新（動画ごと・演者ごとの基準値）
+  def update_reference_bbox!
+    return if person_id.nil?
+
+    person_detections = detections.where.not(x1: nil, y1: nil, x2: nil, y2: nil)
+    return if person_detections.empty?
+
+    # 最初の10フレーム程度の平均を基準値とする
+    sample_detections = person_detections.order(:frame_number).limperformances に person_id カラム追加
+detections から performance_id カラム削除
+JOIN で演者情報を取得するように修正it(10)
+
+    widths = sample_detections.map { |d| d.x2 - d.x1 }
+    heights = sample_detections.map { |d| d.y2 - d.y1 }
+    sizes = sample_detections.map { |d| (d.x2 - d.x1) * (d.y2 - d.y1) }
+
+    update!(
+      reference_bbox_width: widths.sum / widths.size.to_f,
+      reference_bbox_height: heights.sum / heights.size.to_f,
+      reference_bbox_size: sizes.sum / sizes.size.to_f,
+      reference_bbox_updated_at: Time.current
+    )
   end
 end

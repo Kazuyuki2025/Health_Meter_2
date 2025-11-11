@@ -13,34 +13,30 @@ class VideoPlayerWithBBox {
     
     this.framesData = {};
     this.currentFrame = 0;
-    this.fps = 30; // 動画のFPS（解析時のFPSに合わせる）
+    this.fps = 30;
     this.showBbox = true;
     this.showLabels = true;
     this.isPlaying = false;
     
     this.colors = ['#00ff00', '#ff0000', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    this.personColors = {}; // 追加: Person IDごとの色マッピング
     
     this.init();
   }
   
   async init() {
-    // 動画サイズに合わせてキャンバスを設定
     this.video.addEventListener('loadedmetadata', () => {
       this.resizeCanvas();
     });
     
-    // ウィンドウサイズ変更時にキャンバスをリサイズ
     window.addEventListener('resize', () => {
       this.resizeCanvas();
     });
     
-    // 全フレームの検出データを読み込み
     await this.loadAllFramesData();
     
-    // 各種イベント登録
     this.setupEventListeners();
     
-    // 初期描画
     this.updateCanvas();
   }
   
@@ -67,33 +63,50 @@ class VideoPlayerWithBBox {
       
       this.framesData = data.frames;
       this.totalFrames = data.totalFrames;
+      this.performerColors = data.performerColors || {}; // 追加: サーバーから色情報取得
       
       console.log(`Loaded ${Object.keys(this.framesData).length} frames with ${data.totalDetections} total detections`);
+      console.log('Performer colors:', this.performerColors);
       
     } catch (error) {
       console.error('フレームデータの読み込みエラー:', error);
     }
   }
   
+  // 追加: Person IDに基づいて色を取得
+  getColorForPerson(personId) {
+    if (!this.personColors[personId]) {
+      // まだ色が割り当てられていない場合、新しい色を割り当て
+      const colorIndex = Object.keys(this.personColors).length % this.colors.length;
+      this.personColors[personId] = this.colors[colorIndex];
+      console.log(`Assigned color ${this.colors[colorIndex]} to person ID ${personId}`);
+    }
+    return this.personColors[personId];
+  }
+  
+  // 追加: Performer名に基づいて色を取得
+  getColorForPerformer(performerName) {
+    if (this.performerColors && this.performerColors[performerName]) {
+      return this.performerColors[performerName];
+    }
+    return null;
+  }
+  
   setupEventListeners() {
-    // 再生中は描画ループを回す
     this.video.addEventListener('play', () => {
       this.isPlaying = true;
       this.renderLoop();
     });
     
-    // 一時停止で描画ループを止める
     this.video.addEventListener('pause', () => {
       this.isPlaying = false;
     });
     
-    // シークした時も即座に再描画
     this.video.addEventListener('seeked', () => {
       this.updateCanvas();
       this.updateUI();
     });
     
-    // BBox表示切り替えボタン
     const toggleBboxBtn = document.getElementById('toggleBbox');
     if (toggleBboxBtn) {
       toggleBboxBtn.addEventListener('click', () => {
@@ -118,7 +131,6 @@ class VideoPlayerWithBBox {
     }
   }
   
-  // 🔁 再生中に滑らかに描画更新するループ
   renderLoop() {
     if (!this.isPlaying) return;
 
@@ -126,7 +138,6 @@ class VideoPlayerWithBBox {
     this.updateCanvas();
     this.updateUI();
 
-    // 次のフレームをリクエスト
     requestAnimationFrame(() => this.renderLoop());
   }
   
@@ -148,13 +159,13 @@ class VideoPlayerWithBBox {
     if (!this.showBbox) return;
     
     const detections = this.framesData[this.currentFrame] || [];
-    detections.forEach((detection, index) => {
-      this.drawBoundingBox(detection, index);
+    detections.forEach((detection) => {
+      this.drawBoundingBox(detection); // indexは不要になった
     });
   }
   
-  drawBoundingBox(detection, index) {
-    const { x1, y1, x2, y2, activityValue } = detection;
+  drawBoundingBox(detection) {
+    const { x1, y1, x2, y2, activityValue, personId, performerName } = detection;
     
     const scaledX1 = x1 * this.scaleX;
     const scaledY1 = y1 * this.scaleY;
@@ -164,16 +175,36 @@ class VideoPlayerWithBBox {
     const width = scaledX2 - scaledX1;
     const height = scaledY2 - scaledY1;
     
-    const color = this.colors[index % this.colors.length];
+    // 色の優先順位:
+    // 1. Performer名ベースの色（演者紐付け済み）
+    // 2. Person IDベースの色
+    // 3. デフォルトの緑色
+    let color;
+    if (performerName) {
+      color = this.getColorForPerformer(performerName) || this.getColorForPerson(personId);
+    } else if (personId !== undefined && personId !== null) {
+      color = this.getColorForPerson(personId);
+    } else {
+      color = '#00ff00'; // デフォルト
+    }
     
     this.ctx.strokeStyle = color;
     this.ctx.lineWidth = 3;
     this.ctx.strokeRect(scaledX1, scaledY1, width, height);
     
-    if (this.showLabels && activityValue !== undefined) {
-      const label = `Activity: ${activityValue.toFixed(2)}`;
+    if (this.showLabels) {
+      // ラベルテキストの決定
+      let label;
+      if (performerName) {
+        label = `${performerName}: ${activityValue?.toFixed(2) || 'N/A'}`;
+      } else if (personId !== undefined && personId !== null) {
+        label = `Person ${personId}: ${activityValue?.toFixed(2) || 'N/A'}`;
+      } else {
+        label = `Activity: ${activityValue?.toFixed(2) || 'N/A'}`;
+      }
+      
       this.ctx.fillStyle = color;
-      const labelWidth = 150;
+      const labelWidth = 180;
       const labelHeight = 25;
       this.ctx.fillRect(scaledX1, scaledY1 - labelHeight, labelWidth, labelHeight);
       

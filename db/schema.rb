@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_10_20_054939) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_10_022934) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -59,6 +59,9 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_054939) do
     t.float "y2"
     t.integer "video_id", null: false
     t.float "activity"
+    t.integer "person_id"
+    t.index ["person_id"], name: "index_detections_on_person_id"
+    t.index ["video_id", "person_id"], name: "index_detections_on_video_id_and_person_id"
     t.index ["video_id"], name: "index_detections_on_video_id"
   end
 
@@ -68,7 +71,13 @@ ActiveRecord::Schema[8.0].define(version: 2025_10_20_054939) do
     t.integer "video_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "person_id"
+    t.float "reference_bbox_width"
+    t.float "reference_bbox_height"
+    t.float "reference_bbox_size"
+    t.datetime "reference_bbox_updated_at"
     t.index ["performer_id"], name: "index_performances_on_performer_id"
+    t.index ["video_id", "person_id"], name: "index_performances_on_video_id_and_person_id", unique: true
     t.index ["video_id"], name: "index_performances_on_video_id"
   end
 

@@ -1,6 +1,8 @@
 class Performer < ApplicationRecord
   has_many :performances, dependent: :destroy
+  has_many :videos, through: :performances
   has_many :activities, through: :performances
+
   validates :name, presence: true
 
   scope :with_latest_activity_average, -> {

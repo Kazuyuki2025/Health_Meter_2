@@ -42,7 +42,6 @@ fps = args.fps
 frame_width = args.framesize[0]
 frame_height = args.framesize[1]
 detect_limit = args.limit
-detect_type = int(args.type)
 input_file = args.input
 model_data = args.model
 start_frame = args.start
@@ -68,14 +67,6 @@ if start_frame < 2:
 cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
-# --- ここから追加 ---
-# 動画フレームの対角線の長さを計算
-frame_diagonal = math.sqrt(frame_width**2 + frame_height**2)
-if frame_diagonal == 0:
-    print("Error: Frame width and height are zero.", file=sys.stderr)
-    exit()
-# --- ここまで追加 ---
 
 print("---start---")
 
@@ -158,36 +149,18 @@ for i in range(frame_count):
         current_ids.add(ids)
         current_coordinates[ids] = (x1, x2, y1, y2)
         
-        # ハイブリッド正規化
-        base_vx1 = abs(x1 - coordinate[ids][0]) / frame_diagonal
-        base_vx2 = abs(x2 - coordinate[ids][1]) / frame_diagonal
-        base_vy1 = abs(y1 - coordinate[ids][2]) / frame_diagonal
-        base_vy2 = abs(y2 - coordinate[ids][3]) / frame_diagonal
-        
-        current_bbox_size = math.sqrt(width * height)
-        bbox_ratio = current_bbox_size / frame_diagonal
-        distance_correction = 1.0 / max(0.05, bbox_ratio)
-        
-        normalized_vx1 = 100 * base_vx1 * distance_correction
-        normalized_vx2 = 100 * base_vx2 * distance_correction
-        normalized_vy1 = 100 * base_vy1 * distance_correction
-        normalized_vy2 = 100 * base_vy2 * distance_correction
+        # 速度計算
+        vx1 = abs(x1 - coordinate[ids][0])
+        vx2 = abs(x2 - coordinate[ids][1])
+        vy1 = abs(y1 - coordinate[ids][2])
+        vy2 = abs(y2 - coordinate[ids][3])
 
-        velocity[ids] = [normalized_vx1, normalized_vx2, normalized_vy1, normalized_vy2]
+        velocity[ids] = [vx1, vx2, vy1, vy2]
 
-        match detect_type:
-            case 1:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
-                           abs(velocity[ids][1] - pre_velocity[ids][1]) + \
-                           abs(velocity[ids][2] - pre_velocity[ids][2]) + \
-                           abs(velocity[ids][3] - pre_velocity[ids][3])
-            case 2:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
-                           abs(velocity[ids][1] - pre_velocity[ids][1]) + \
-                           abs(velocity[ids][2] - pre_velocity[ids][2]) + \
-                           abs(velocity[ids][3] - pre_velocity[ids][3])
-            case _:
-                print("Please select a specific type")
+        evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
+                    abs(velocity[ids][1] - pre_velocity[ids][1]) + \
+                    abs(velocity[ids][2] - pre_velocity[ids][2]) + \
+                    abs(velocity[ids][3] - pre_velocity[ids][3])
 
         if evaluation > 100:
             evaluation = 0.00
@@ -202,7 +175,6 @@ for i in range(frame_count):
                 analysis_results[ids] = []
             analysis_results[ids].append(evaluation)
             
-            # 新規追加: フレームごとの検出データを保存
             frame_detections.append({
                 "frame_number": played_frame,
                 "person_id": ids,
@@ -281,18 +253,16 @@ safe_frame_results = {str(obj_id): frames for obj_id, frames in frame_informatio
 output_data = {
     "averaged_results": safe_results,
     "frame_information": safe_frame_results,
-    "frame_detections": frame_detections,  # 追加
+    "frame_detections": frame_detections,
     "analysis_config": {
         "segments": num_segments,
         "segmentation_enabled": num_segments > 0,
         "total_ids": len(averaged_results),
-        "total_frames": len(frame_detections)  # 追加
+        "total_frames": len(frame_detections),
+        "frame_width": frame_width,
+        "frame_height": frame_height
     }
 }
-
-# detections.jsonは削除（不要）
-# with open("detections.json", "w") as f:
-#     json.dump(detections_list, f, indent=2, ensure_ascii=False)
 
 # 標準出力に出力
 print(json.dumps(output_data))
