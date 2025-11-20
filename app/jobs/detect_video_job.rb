@@ -29,7 +29,7 @@ class DetectVideoJob < ApplicationJob
       Rails.logger.info "動画パス: #{video_path}"
       Rails.logger.info "スクリプトパス: #{script_path}"
 
-      command = "python3 #{script_path} --segments 13 #{Shellwords.escape(video_path)}"
+      command = "python3 #{script_path} #{Shellwords.escape(video_path)}"
       stdout, stderr, status = Open3.capture3(command)
 
       Rails.logger.info "DetectVideoJob stdout size=#{stdout.bytesize}"
@@ -38,27 +38,29 @@ class DetectVideoJob < ApplicationJob
       if status.success?
         json_line = stdout.lines.reverse.find { |line|
           stripped_line = line.strip
-          stripped_line.start_with?("{") && (
-            stripped_line.include?('"averaged_results"') ||
-            stripped_line.include?('"frame_information"')
-          )
+          stripped_line.start_with?("{") && stripped_line.include?('"frame_detections"')
         }
+
+        Rails.logger.info "以下のJSONが返却されました: #{json_line}"
 
         if json_line
           parsed_data = JSON.parse(json_line.strip)
-
-          Rails.logger.info "解析設定: #{parsed_data.dig('analysis_config', 'segments')}分割"
-          Rails.logger.info "フレーム情報: #{parsed_data['frame_information']&.keys&.size}人分"
           Rails.logger.info "フレーム検出データ: #{parsed_data['frame_detections']&.size}件"
 
-          # Activityデータを保存
-          save_to_activities(video, parsed_data)
-
-          # Detectionデータを保存（既存スキーマ対応）
+          # 1. Detectionデータを保存
           save_to_detections(video, parsed_data)
 
+          # 2. 演者が紐付けられている場合、基準BBoxサイズを計算
+          Rails.logger.info "基準BBoxサイズの計算を開始"
+          video.recalculate_all_reference_bboxes
+
+          # 3. 活動量を計算
+          Rails.logger.info "活動量計算を開始"
+          calculate_service = CalculateActivity.new(video)
+          calculate_service.calculate_and_save!
+
           video.update!(analysis_status: "completed")
-          Rails.logger.info "解析結果をActivityとDetectionテーブルに保存しました: video_id=#{video.id}"
+          Rails.logger.info "解析と活動量計算が完了しました: video_id=#{video.id}"
         else
           Rails.logger.error "JSON結果が見つかりません"
           video.update!(analysis_status: "failed")
@@ -78,43 +80,6 @@ class DetectVideoJob < ApplicationJob
 
   private
 
-  def save_to_activities(video, data)
-    video.performances.each { |p| p.activities.destroy_all }
-
-    averaged_results = data["averaged_results"] || {}
-    frame_information = data["frame_information"] || {}
-
-    Rails.logger.info "Activity保存処理開始: #{averaged_results.keys.size}人分のデータ"
-
-    existing_performances = video.performances.includes(:performer).to_a
-    averaged_results.each_with_index do |(person_id, segment_values), index|
-      performance = existing_performances[index]
-
-      if performance.nil?
-        Rails.logger.warn "Performance not found for person_id: #{person_id}, index: #{index}"
-        next
-      end
-
-      Rails.logger.info "演者 #{performance.performer&.name || 'Unknown'} のデータを保存中: #{segment_values.size}セグメント"
-
-      segment_values.each_with_index do |value, segment_index|
-        frame_info = frame_information[person_id]&.[](segment_index) || {}
-
-        Activity.create!(
-          performance: performance,
-          value: value,
-          start_frame: frame_info["start_frame"],
-          end_frame: frame_info["end_frame"]
-        )
-      end
-
-      Rails.logger.info "演者 #{performance.performer&.name} の保存完了: #{segment_values.size}個のActivity"
-    end
-
-    Rails.logger.info "全Activityデータの保存完了"
-  end
-
-  # 既存スキーマ対応版（person_idなし）
   def save_to_detections(video, data)
     frame_detections = data["frame_detections"] || []
 
@@ -129,16 +94,17 @@ class DetectVideoJob < ApplicationJob
     video.detections.destroy_all
     Rails.logger.info "既存のDetectionデータを削除しました"
 
-    # データを一括挿入用に変換（既存スキーマに合わせる）
+    # データを一括挿入用に変換
     detections_data = frame_detections.map do |detection|
       {
         video_id: video.id,
         frame_number: detection["frame_number"],
+        person_id: detection["person_id"],
         x1: detection["x1"].to_f,
         y1: detection["y1"].to_f,
         x2: detection["x2"].to_f,
         y2: detection["y2"].to_f,
-        activity: detection["activity_value"].to_f,  # activityカラムに保存
+        activity: detection["activity_value"].to_f,
         created_at: Time.current,
         updated_at: Time.current
       }

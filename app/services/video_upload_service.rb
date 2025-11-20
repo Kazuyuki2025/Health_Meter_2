@@ -1,5 +1,6 @@
 require "open3"
 require "shellwords"
+require "ostruct"
 
 class VideoUploadService
   include ActiveModel::Model
@@ -14,8 +15,8 @@ class VideoUploadService
   end
 
   def call
-    return failure("ファイルが選択されていません") unless uploaded_file
-    return failure("動画パラメータが不正です") unless video_params.present?
+    return failure_result("ファイルが選択されていません") unless uploaded_file
+    return failure_result("動画パラメータが不正です") unless video_params.present?
 
     process_video_upload
   end
@@ -31,7 +32,8 @@ class VideoUploadService
     if video.save
       if perform_analysis
         prepare_response_data
-        success_result(@notice_msg)
+        # 画像解析成功時は演者紐付け画面へ遷移させる
+        success_result_with_redirect(@notice_msg)
       else
         failure_result("画像解析に失敗しました: #{@stderr}")
       end
@@ -41,6 +43,19 @@ class VideoUploadService
   rescue => e
     Rails.logger.error "エラー発生: #{e.message}"
     failure_result("アップロード中にエラーが発生しました")
+  end
+
+  # 既存のsuccess_resultを拡張
+  def success_result_with_redirect(message)
+    OpenStruct.new(
+      success?: true,
+      video: video,
+      shooting_date: video.date,
+      detected_ids: @detected_ids,
+      images: @images,
+      notice_msg: message,
+      redirect_to_assign: @detected_ids&.any?  # 演者紐付け画面へのリダイレクトフラグ
+    )
   end
 
   def extract_video_metadata

@@ -16,13 +16,8 @@ class Video < ApplicationRecord
   }, validate: true
 
   def get_detected_ids
-    # 既存のパフォーマンスから推測
-    if performances.any?
-      performances.pluck(:id)
-    else
-      # デフォルト値またはnil
-      []
-    end
+    # Detectionテーブルから実際に検出されたperson_idを取得
+    detections.distinct.pluck(:person_id).compact.sort
   end
 
   def get_all_activities
@@ -54,10 +49,80 @@ class Video < ApplicationRecord
 
   def assign_performer(detected_id, performer_id)
     return if performer_id.blank?
-    Rails.logger.info "Assigning performer_id #{performer_id} to detected_id #{detected_id} in video #{id}"
 
-    performances.find_or_create_by(performer_id: performer_id) do |p|
+    person_id = detected_id.to_i
+    Rails.logger.info "Assigning performer_id #{performer_id} to person_id #{person_id} in video #{id}"
+
+    # person_idとperformer_idの両方を保存
+    performance = performances.find_or_create_by(performer_id: performer_id) do |p|
+      p.person_id = person_id
       p.date = Date.current.to_s
+    end
+
+    # 既存のperformanceの場合もperson_idを更新
+    performance.update!(person_id: person_id) if performance.person_id != person_id
+
+    # 紐付け後、基準BBoxサイズを計算
+    calculate_reference_bbox_for_performance(performance)
+
+    performance
+  end
+
+  # 特定のperformanceに対して基準BBoxサイズを計算
+  def calculate_reference_bbox_for_performance(performance)
+    return unless performance.person_id
+
+    Rails.logger.info "Performance #{performance.id} の基準BBoxサイズを計算中..."
+
+    # このperson_idのDetectionデータを取得
+    person_detections = detections.where(person_id: performance.person_id)
+                                  .order(:frame_number)
+                                  .limit(100)
+
+    if person_detections.empty?
+      Rails.logger.warn "Person #{performance.person_id} の検出データがありません"
+      return
+    end
+
+    # BBoxサイズの平均を計算
+    widths = person_detections.map { |d| d.x2 - d.x1 }
+    heights = person_detections.map { |d| d.y2 - d.y1 }
+    sizes = person_detections.map { |d| (d.x2 - d.x1) * (d.y2 - d.y1) }
+
+    avg_width = widths.sum / widths.size.to_f
+    avg_height = heights.sum / heights.size.to_f
+    avg_size = sizes.sum / sizes.size.to_f
+
+    # performanceに常に保存（この動画でのBBoxサイズ）
+    performance.update!(
+      reference_bbox_width: avg_width,
+      reference_bbox_height: avg_height,
+      reference_bbox_size: avg_size,
+      reference_bbox_updated_at: Time.current
+    )
+
+    Rails.logger.info "Performance #{performance.id}: BBoxサイズ=#{avg_size.round(2)} を保存"
+
+    performer = performance.performer
+
+    # performerに基準値がない場合のみ保存（初回のみ）
+    if performer.reference_bbox_size.blank? || performer.reference_bbox_size <= 0
+      performer.update!(
+        reference_bbox_width: avg_width,
+        reference_bbox_height: avg_height,
+        reference_bbox_size: avg_size
+      )
+      Rails.logger.info "Performer #{performer.name}: 基準BBoxサイズ=#{avg_size.round(2)} を初回登録"
+    else
+      Rails.logger.info "Performer #{performer.name}: 既存の基準値=#{performer.reference_bbox_size.round(2)} を使用（更新なし）"
+    end
+  end
+
+  # 全てのperformanceに対して基準BBoxサイズを再計算
+  def recalculate_all_reference_bboxes
+    performances.each do |performance|
+      next unless performance.person_id
+      calculate_reference_bbox_for_performance(performance)
     end
   end
 
@@ -79,6 +144,6 @@ class Video < ApplicationRecord
 
   def thumbnail_url
     return nil unless thumbnail.attached?
-      Rails.application.routes.url_helpers.rails_blob_path(thumbnail, only_path: true)
+    Rails.application.routes.url_helpers.rails_blob_path(thumbnail, only_path: true)
   end
 end

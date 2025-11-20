@@ -2,30 +2,39 @@ require "open3"
 
 class VideosController < ApplicationController
   before_action :set_video, only: [ :edit, :update, :show, :destroy, :player, :frame_data, :all_frames_data ]
+
   def new
     @video = Video.new
   end
 
-
   def create
     service = VideoUploadService.new(
       video_params: video_params,
-     uploaded_file: params[:video][:content]
+      uploaded_file: params[:video][:content]
     )
 
     result = service.call
 
     if result.success?
-      @video = result.video
+      # 成功時
+      if result.redirect_to_assign
+        # 画像解析成功 → 演者紐付け画面へ
+        flash[:detected_ids] = result.detected_ids
+        flash[:notice] = result.notice_msg if result.notice_msg.present?
+        redirect_to video_path(result.video)  # ← redirectに変更
+      else
+        # 画像解析失敗 → show画面へ
+        flash[:notice] = result.notice_msg if result.notice_msg.present?
+        redirect_to video_path(result.video)
+      end
+    else
+      # 失敗時
+      @video = result.video || Video.new
       @shooting_date = result.shooting_date
       @detected_ids = result.detected_ids
       @images = result.images
       @performers = Performer.all
-      flash.now[:notice] = result.notice_msg
-      render :new
-      Rails.logger.info "動画アップロード成功: 撮影日 #{result.shooting_date}"
-    else
-      @video = result.video || Video.new
+
       flash.now[:alert] = result.error_message
       render :new, status: :unprocessable_entity
     end
@@ -36,8 +45,8 @@ class VideosController < ApplicationController
 
     if params[:performer_assignments].present?
       params[:performer_assignments].each do |detected_id, performer_id|
-      @video.assign_performer(detected_id, performer_id)
-    end
+        @video.assign_performer(detected_id, performer_id)
+      end
 
       @video.update(analysis_status: :analyzing)
       DetectVideoJob.perform_later(@video.id)
@@ -82,6 +91,10 @@ class VideosController < ApplicationController
     @detected_ids = flash[:detected_ids] || @video.get_detected_ids
     @activity_data = @video.get_all_activities
     @overall_stats = @video.calculate_overall_stats
+
+    # 画像解析後の演者紐付け用
+    @images = get_generated_images if @detected_ids&.any? && @video.analysis_status == "pending"
+    @performers = Performer.all if @detected_ids&.any?
   end
 
   def player
@@ -116,52 +129,80 @@ class VideosController < ApplicationController
   end
 
   def all_frames_data
-    # JOINで演者情報を取得
-    detections_with_performers = @video.detections
-                                       .left_joins(
-                                         "LEFT JOIN performances ON
-                                          detections.video_id = performances.video_id AND
-                                          detections.person_id = performances.person_id"
-                                       )
-                                       .left_joins(
-                                         "LEFT JOIN performers ON performances.performer_id = performers.id"
-                                       )
-                                       .select(
-                                         "detections.*",
-                                         "performers.name as performer_name"
-                                       )
-                                       .order(:frame_number)
+    @video = Video.find(params[:id])
 
-    frames_data = detections_with_performers
-                    .group_by(&:frame_number)
-                    .transform_values do |detections|
-      detections.map do |d|
-        {
-          frameNumber: d.frame_number,
-          x1: d.x1.to_i,
-          y1: d.y1.to_i,
-          x2: d.x2.to_i,
-          y2: d.y2.to_i,
-          activityValue: d.activity&.round(2),
-          personId: d.person_id,
-          performerName: d.try(:performer_name)
-        }
+    # Detectionデータが存在しない場合
+    if @video.detections.empty?
+      render json: {
+        frames: {},
+        totalFrames: 0,
+        totalDetections: 0,
+        performerColors: {},
+        message: "解析データがありません"
+      }
+      return
+    end
+
+    # Detectionデータを取得
+    detections = @video.detections.order(:frame_number)
+
+    # person_idとperformanceのマッピングを作成
+    person_to_performance = {}
+    @video.performances.includes(:performer).each do |performance|
+      if performance.person_id.present?
+        person_to_performance[performance.person_id] = performance
       end
     end
 
-    # 演者ごとの色情報を生成
+    # フレームごとにグループ化
+    frames_hash = {}
+    detections.each do |detection|
+      frame_num = detection.frame_number
+      frames_hash[frame_num] ||= []
+
+      # person_idからperformanceを取得
+      performance = person_to_performance[detection.person_id]
+      performer_name = performance&.performer&.name
+
+      frames_hash[frame_num] << {
+        x1: detection.x1,
+        y1: detection.y1,
+        x2: detection.x2,
+        y2: detection.y2,
+        activityValue: detection.activity,
+        personId: detection.person_id,
+        performerName: performer_name
+      }
+    end
+
+    # Performerごとに色を割り当て
     performer_colors = {}
-    colors = [ "#00ff00", "#ff0000", "#0000ff", "#ffff00", "#ff00ff", "#00ffff" ]
+    color_palette = [ "#00ff00", "#ff0000", "#0000ff", "#ffff00", "#ff00ff", "#00ffff" ]
+
     @video.performances.includes(:performer).each_with_index do |performance, index|
-      performer_colors[performance.performer.name] = colors[index % colors.length] if performance.performer
+      if performance.performer
+        performer_colors[performance.performer.name] = color_palette[index % color_palette.length]
+      end
     end
 
     render json: {
-      frames: frames_data,
-      totalFrames: @video.detections.maximum(:frame_number) || 0,
-      totalDetections: @video.detections.count,
+      frames: frames_hash,
+      totalFrames: frames_hash.keys.max || 0,
+      totalDetections: detections.count,
       performerColors: performer_colors
     }
+
+  rescue => e
+    Rails.logger.error "all_frames_data エラー: #{e.message}"
+    Rails.logger.error e.backtrace.join("\n")
+
+    render json: {
+      error: e.message,
+      frames: {},
+      totalFrames: 0,
+      totalDetections: 0,
+      performerColors: {}
+    }, status: :internal_server_error
   end
 
   def edit
@@ -184,5 +225,14 @@ class VideosController < ApplicationController
 
   def set_video
     @video = Video.find(params[:id])
+  end
+
+  def get_generated_images
+    base_dir = Rails.root.join("public", "images", "detections", @video.id.to_s)
+    return [] unless Dir.exist?(base_dir)
+
+    Dir.glob(File.join(base_dir, "*.jpg")).map do |path|
+      "/images/detections/#{@video.id}/#{File.basename(path)}"
+    end.sort
   end
 end
