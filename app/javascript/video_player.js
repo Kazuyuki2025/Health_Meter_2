@@ -18,7 +18,7 @@ class VideoPlayerWithBBox {
     this.showLabels = true;
     this.isPlaying = false;
     
-    this.colors = ['#00ff00', '#ff0000', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+    this.colors = ['#00ff00', '#ff0000', '#0000ff', '#ff00ff', '#ffff00', '#00ffff'];
     this.personColors = {}; // 追加: Person IDごとの色マッピング
     
     this.init();

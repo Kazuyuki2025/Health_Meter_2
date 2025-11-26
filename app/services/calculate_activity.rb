@@ -1,13 +1,21 @@
 class CalculateActivity
-  attr_reader :video, :num_segments
+  attr_reader :video, :num_segments, :force_no_normalization, :normalization_method
 
-  def initialize(video, num_segments: 13)
+  def initialize(video, num_segments: 13, force_no_normalization: false, normalization_method: :height)
     @video = video
     @num_segments = num_segments
+    @force_no_normalization = force_no_normalization
+    @normalization_method = normalization_method  # :height or :area
   end
 
   def calculate_and_save!
-    Rails.logger.info "活動量計算開始: video_id=#{video.id}, セグメント数=#{num_segments}"
+    mode = if force_no_normalization
+             "正規化なし（強制）"
+    else
+             "自動判定（正規化方法: #{normalization_method}）"
+    end
+
+    Rails.logger.info "活動量計算開始: video_id=#{video.id}, セグメント数=#{num_segments}, モード=#{mode}"
 
     video.performances.each do |performance|
       calculate_for_performance(performance)
@@ -24,7 +32,6 @@ class CalculateActivity
       return
     end
 
-    # この演者のDetectionデータを取得
     detections = video.detections.where(person_id: performance.person_id).order(:frame_number)
 
     if detections.empty?
@@ -34,34 +41,31 @@ class CalculateActivity
 
     performer = performance.performer
 
-    # 基準BBoxサイズを取得（performerから）
+    if force_no_normalization
+      Rails.logger.info "演者 #{performer.name}: 正規化なし（強制モード）"
+      calculate_without_normalization(performance, detections)
+      return
+    end
+
     reference_bbox_size = performer.reference_bbox_size
 
     if reference_bbox_size.blank? || reference_bbox_size <= 0
-      # 基準値がない場合は正規化せずに計算
       Rails.logger.info "演者 #{performer.name}: 基準BBoxサイズなし（正規化なし）"
       calculate_without_normalization(performance, detections)
     else
-      # 基準値がある場合は正規化して計算
       Rails.logger.info "演者 #{performer.name}: " \
-                        "基準BBoxサイズ=#{reference_bbox_size.round(2)}（正規化あり）"
+                        "基準BBoxサイズ=#{reference_bbox_size.round(2)}（正規化方法: #{normalization_method}）"
       calculate_with_normalization(performance, detections, reference_bbox_size)
     end
   end
 
-  # 正規化なしで活動量を計算
   def calculate_without_normalization(performance, detections)
-    # 既存のActivityを削除
     performance.activities.destroy_all
-
-    # num_segmentsに分割
     segments = divide_into_segments(detections, num_segments)
 
-    # 各セグメントの平均活動量を計算・保存（正規化なし）
     segments.each_with_index do |segment_detections, index|
       next if segment_detections.empty?
 
-      # Python版と同じロジックで活動量を計算
       avg_activity = calculate_raw_activity(segment_detections)
 
       Activity.create!(
@@ -75,19 +79,18 @@ class CalculateActivity
     end
   end
 
-  # 正規化して活動量を計算
   def calculate_with_normalization(performance, detections, reference_bbox_size)
-    # 既存のActivityを削除
     performance.activities.destroy_all
-
-    # num_segmentsに分割
     segments = divide_into_segments(detections, num_segments)
 
-    # 各セグメントの正規化された活動量を計算・保存
     segments.each_with_index do |segment_detections, index|
       next if segment_detections.empty?
 
-      normalized_activity = calculate_normalized_activity(segment_detections, reference_bbox_size)
+      normalized_activity = calculate_normalized_activity(
+        segment_detections,
+        reference_bbox_size,
+        normalization_method
+      )
 
       Activity.create!(
         performance: performance,
@@ -96,7 +99,7 @@ class CalculateActivity
         end_frame: segment_detections.last.frame_number
       )
 
-      Rails.logger.info "  セグメント#{index + 1}: 活動量=#{normalized_activity.round(2)}（正規化済み）"
+      Rails.logger.info "  セグメント#{index + 1}: 活動量=#{normalized_activity.round(2)}（正規化済み: #{normalization_method}）"
     end
   end
 
@@ -111,51 +114,10 @@ class CalculateActivity
     end
   end
 
-  # Python版と同じロジック: BBox4点の速度変化（加速度）を計算
   def calculate_raw_activity(detections)
-    return 0.0 if detections.count < 3  # 最低3フレーム必要（速度→加速度）
-
-    total_evaluation = 0.0
-    coordinate = [ 0, 0, 0, 0 ]  # [x1, x2, y1, y2]
-    velocity = [ 0, 0, 0, 0 ]
-    pre_velocity = [ 0, 0, 0, 0 ]
-
-    detections.each do |detection|
-      x1, x2, y1, y2 = detection.x1, detection.x2, detection.y1, detection.y2
-
-      # 速度計算（各座標の移動量）
-      vx1 = (x1 - coordinate[0]).abs
-      vx2 = (x2 - coordinate[1]).abs
-      vy1 = (y1 - coordinate[2]).abs
-      vy2 = (y2 - coordinate[3]).abs
-
-      velocity = [ vx1, vx2, vy1, vy2 ]
-
-      # 加速度計算（速度の変化量）
-      evaluation = (velocity[0] - pre_velocity[0]).abs +
-                   (velocity[1] - pre_velocity[1]).abs +
-                   (velocity[2] - pre_velocity[2]).abs +
-                   (velocity[3] - pre_velocity[3]).abs
-
-      # 異常値除外
-      evaluation = 0.0 if evaluation > 100
-
-      # 次のフレームのために更新
-      coordinate = [ x1, x2, y1, y2 ]
-      pre_velocity = velocity
-
-      total_evaluation += evaluation
-    end
-
-    # 平均活動量
-    detections.count > 0 ? total_evaluation / detections.count : 0.0
-  end
-
-  # 正規化版: BBox4点の速度変化 + サイズ補正
-  def calculate_normalized_activity(detections, reference_bbox_size)
     return 0.0 if detections.count < 3
 
-    total_normalized_evaluation = 0.0
+    total_evaluation = 0.0
     coordinate = [ 0, 0, 0, 0 ]
     velocity = [ 0, 0, 0, 0 ]
     pre_velocity = [ 0, 0, 0, 0 ]
@@ -163,7 +125,6 @@ class CalculateActivity
     detections.each do |detection|
       x1, x2, y1, y2 = detection.x1, detection.x2, detection.y1, detection.y2
 
-      # 速度計算
       vx1 = (x1 - coordinate[0]).abs
       vx2 = (x2 - coordinate[1]).abs
       vy1 = (y1 - coordinate[2]).abs
@@ -171,7 +132,6 @@ class CalculateActivity
 
       velocity = [ vx1, vx2, vy1, vy2 ]
 
-      # 加速度計算
       evaluation = (velocity[0] - pre_velocity[0]).abs +
                    (velocity[1] - pre_velocity[1]).abs +
                    (velocity[2] - pre_velocity[2]).abs +
@@ -179,22 +139,77 @@ class CalculateActivity
 
       evaluation = 0.0 if evaluation > 100
 
-      # 現在のBBoxサイズ
-      current_bbox_size = (x2 - x1) * (y2 - y1)
+      coordinate = [ x1, x2, y1, y2 ]
+      pre_velocity = velocity
 
-      # サイズ比率で正規化（カメラ距離の補正）
-      size_ratio = Math.sqrt(current_bbox_size / reference_bbox_size)
+      total_evaluation += evaluation
+    end
 
-      # 評価値を正規化
+    detections.count > 0 ? total_evaluation / detections.count : 0.0
+  end
+
+  def calculate_normalized_activity(detections, reference_bbox_size, method = :height)
+    return 0.0 if detections.count < 3
+
+    total_normalized_evaluation = 0.0
+
+    first = detections.first
+    coordinate = [ first.x1, first.x2, first.y1, first.y2 ]
+    pre_velocity = [ 0, 0, 0, 0 ]
+
+    detections.each_with_index do |detection, i|
+      next if i == 0
+
+      x1, x2, y1, y2 = detection.x1, detection.x2, detection.y1, detection.y2
+
+      # 速度
+      vx1 = (x1 - coordinate[0]).abs
+      vx2 = (x2 - coordinate[1]).abs
+      vy1 = (y1 - coordinate[2]).abs
+      vy2 = (y2 - coordinate[3]).abs
+      velocity = [ vx1, vx2, vy1, vy2 ]
+
+      # 加速度
+      evaluation = (velocity[0] - pre_velocity[0]).abs +
+                   (velocity[1] - pre_velocity[1]).abs +
+                   (velocity[2] - pre_velocity[2]).abs +
+                   (velocity[3] - pre_velocity[3]).abs
+
+      evaluation = 0.0 if evaluation > 100
+
+      # 正規化比率を計算（方法により異なる）
+      size_ratio = case method
+      when :height
+                     calculate_height_ratio(x1, x2, y1, y2, reference_bbox_size)
+      when :area
+                     calculate_area_ratio(x1, x2, y1, y2, reference_bbox_size)
+      else
+                     1.0
+      end
+
       normalized_evaluation = evaluation * size_ratio
 
       total_normalized_evaluation += normalized_evaluation
 
-      # 次のフレームのために更新
+      # 更新
       coordinate = [ x1, x2, y1, y2 ]
       pre_velocity = velocity
     end
 
-    detections.count > 0 ? total_normalized_evaluation / detections.count : 0.0
+    total_normalized_evaluation / (detections.count - 1)
+  end
+
+  def calculate_height_ratio(x1, x2, y1, y2)
+    reference_height = Math.sqrt(reference_bbox_size)
+
+    current_height = [ (y2 - y1).abs, 1.0 ].max
+
+    reference_height / current_height
+  end
+
+  def calculate_area_ratio(x1, x2, y1, y2, reference_bbox_size)
+    current_area = [ (x2 - x1).abs * (y2 - y1).abs, 1.0 ].max
+
+    Math.sqrt(reference_bbox_size / current_area)
   end
 end

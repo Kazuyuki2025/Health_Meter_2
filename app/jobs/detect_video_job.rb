@@ -4,7 +4,7 @@ require "shellwords"
 class DetectVideoJob < ApplicationJob
   queue_as :default
 
-  def perform(video_id)
+  def perform(video_id, normalization_mode: :auto, normalization_method: :height)
     video = Video.find(video_id)
 
     unless video.performances.exists?
@@ -15,7 +15,7 @@ class DetectVideoJob < ApplicationJob
 
     if Video.where(analysis_status: "analyzing").where.not(id: video.id).exists?
       Rails.logger.info "他の動画が解析中です。2分後に再実行します。"
-      self.class.set(wait: 2.minutes).perform_later(video_id)
+      self.class.set(wait: 2.minutes).perform_later(video_id, normalization_mode: normalization_mode)
       return
     end
 
@@ -28,6 +28,7 @@ class DetectVideoJob < ApplicationJob
       Rails.logger.info "DetectVideoJob 実行開始"
       Rails.logger.info "動画パス: #{video_path}"
       Rails.logger.info "スクリプトパス: #{script_path}"
+      Rails.logger.info "正規化モード: #{normalization_mode}"
 
       command = "python3 #{script_path} #{Shellwords.escape(video_path)}"
       stdout, stderr, status = Open3.capture3(command)
@@ -54,9 +55,15 @@ class DetectVideoJob < ApplicationJob
           Rails.logger.info "基準BBoxサイズの計算を開始"
           video.recalculate_all_reference_bboxes
 
-          # 3. 活動量を計算
-          Rails.logger.info "活動量計算を開始"
-          calculate_service = CalculateActivity.new(video)
+          # 3. 活動量を計算（正規化モードと方法を指定）
+          Rails.logger.info "活動量計算を開始（モード: #{normalization_mode}, 方法: #{normalization_method}）"
+
+          force_no_normalization = (normalization_mode == :without_normalization)
+          calculate_service = CalculateActivity.new(
+            video,
+            force_no_normalization: force_no_normalization,
+            normalization_method: normalization_method
+          )
           calculate_service.calculate_and_save!
 
           video.update!(analysis_status: "completed")
