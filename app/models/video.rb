@@ -72,7 +72,7 @@ class Video < ApplicationRecord
   def calculate_reference_bbox_for_performance(performance)
     return unless performance.person_id
 
-    Rails.logger.info "Performance #{performance.id} の基準BBoxサイズを計算中..."
+    Rails.logger.info "Performance #{performance.id} の基準BBox高さを計算中..."
 
     # このperson_idのDetectionデータを取得
     person_detections = detections.where(person_id: performance.person_id)
@@ -84,37 +84,26 @@ class Video < ApplicationRecord
       return
     end
 
-    # BBoxサイズの平均を計算
-    widths = person_detections.map { |d| d.x2 - d.x1 }
+    # BBox高さの平均を計算
     heights = person_detections.map { |d| d.y2 - d.y1 }
-    sizes = person_detections.map { |d| (d.x2 - d.x1) * (d.y2 - d.y1) }
-
-    avg_width = widths.sum / widths.size.to_f
     avg_height = heights.sum / heights.size.to_f
-    avg_size = sizes.sum / sizes.size.to_f
 
-    # performanceに常に保存（この動画でのBBoxサイズ）
+    # performanceに常に保存（この動画でのBBox高さ）
     performance.update!(
-      reference_bbox_width: avg_width,
       reference_bbox_height: avg_height,
-      reference_bbox_size: avg_size,
       reference_bbox_updated_at: Time.current
     )
 
-    Rails.logger.info "Performance #{performance.id}: BBoxサイズ=#{avg_size.round(2)} を保存"
+    Rails.logger.info "Performance #{performance.id}: BBox高さ=#{avg_height.round(2)} を保存"
 
     performer = performance.performer
 
     # performerに基準値がない場合のみ保存（初回のみ）
-    if performer.reference_bbox_size.blank? || performer.reference_bbox_size <= 0
-      performer.update!(
-        reference_bbox_width: avg_width,
-        reference_bbox_height: avg_height,
-        reference_bbox_size: avg_size
-      )
-      Rails.logger.info "Performer #{performer.name}: 基準BBoxサイズ=#{avg_size.round(2)} を初回登録"
+    if performer.reference_bbox_height.blank? || performer.reference_bbox_height <= 0
+      performer.update!(reference_bbox_height: avg_height)
+      Rails.logger.info "Performer #{performer.name}: 基準BBox高さ=#{avg_height.round(2)} を初回登録"
     else
-      Rails.logger.info "Performer #{performer.name}: 既存の基準値=#{performer.reference_bbox_size.round(2)} を使用（更新なし）"
+      Rails.logger.info "Performer #{performer.name}: 既存の基準値=#{performer.reference_bbox_height.round(2)} を使用（更新なし）"
     end
   end
 

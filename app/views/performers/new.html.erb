@@ -13,6 +13,12 @@
   </div>
 
   <div class="mb-3">
+    <%= form.label :height, "身長 (cm)" %>
+    <%= form.number_field :height, 
+        class: "form-control", required: true %>
+  </div>
+  
+  <div class="mb-3">
     <%= form.submit "登録", class: "btn btn-primary" %>
   </div>
 <% end %>

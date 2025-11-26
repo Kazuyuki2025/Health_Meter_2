@@ -75,18 +75,11 @@ class Performance < ApplicationRecord
     return if person_detections.empty?
 
     # 最初の10フレーム程度の平均を基準値とする
-    sample_detections = person_detections.order(:frame_number).limperformances に person_id カラム追加
-detections から performance_id カラム削除
-JOIN で演者情報を取得するように修正it(10)
-
-    widths = sample_detections.map { |d| d.x2 - d.x1 }
+    sample_detections = person_detections.order(:frame_number).limit(10)
     heights = sample_detections.map { |d| d.y2 - d.y1 }
-    sizes = sample_detections.map { |d| (d.x2 - d.x1) * (d.y2 - d.y1) }
 
     update!(
-      reference_bbox_width: widths.sum / widths.size.to_f,
       reference_bbox_height: heights.sum / heights.size.to_f,
-      reference_bbox_size: sizes.sum / sizes.size.to_f,
       reference_bbox_updated_at: Time.current
     )
   end

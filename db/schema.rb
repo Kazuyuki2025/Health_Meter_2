@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_14_025025) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_26_021220) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -72,9 +72,7 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_14_025025) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.integer "person_id"
-    t.float "reference_bbox_width"
     t.float "reference_bbox_height"
-    t.float "reference_bbox_size"
     t.datetime "reference_bbox_updated_at"
     t.index ["performer_id"], name: "index_performances_on_performer_id"
     t.index ["video_id", "person_id"], name: "index_performances_on_video_id_and_person_id", unique: true
@@ -86,9 +84,8 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_14_025025) do
     t.string "name"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
-    t.float "reference_bbox_width"
     t.float "reference_bbox_height"
-    t.float "reference_bbox_size"
+    t.float "height"
   end
 
   create_table "videos", force: :cascade do |t|

@@ -4,7 +4,7 @@ class PerformersController < ApplicationController
   end
 
   def create
-    @performer = Performer.new(params.require(:performer).permit(:num, :name))
+    @performer = Performer.new(params.require(:performer).permit(:num, :name, :height))
 
     if @performer.save
       redirect_to performers_path, notice: "が作成されました"
@@ -57,7 +57,7 @@ class PerformersController < ApplicationController
   end
 
   def performer_params
-    params.require(:performer).permit(:num, :name)
+    params.require(:performer).permit(:num, :name, :height)
   end
 
   def unhealthy_risks

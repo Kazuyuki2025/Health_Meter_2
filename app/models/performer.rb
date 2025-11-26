@@ -4,6 +4,7 @@ class Performer < ApplicationRecord
   has_many :activities, through: :performances
 
   validates :name, presence: true
+  validates :height, numericality: true, allow_nil: true
 
   scope :with_latest_activity_average, -> {
   ranked_performances = joins(performances: :video)

@@ -8,6 +8,11 @@
     <%= f.text_field :name, class: "form-control" %>
   </div>
 
+  <div class="mb-3 w-25">
+    <%= f.label :height, "身長" %><br>
+    <%= f.number_field :height, class: "form-control" %>
+  </div>
+
   <div class="actions">
     <%= f.submit "更新する", class: "btn btn-primary" %>
     <%= link_to "キャンセル", performers_path, class: "btn btn-secondary" %>

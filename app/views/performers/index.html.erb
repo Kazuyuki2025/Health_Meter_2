@@ -12,6 +12,7 @@
           <tr>
             <th class="fs-5">ID</th>
             <th class="fs-5">名前</th>
+            <th class="fs-5">身長</th>
             <th class="fs-5">操作</th>
           </tr>
         </thead>
@@ -21,6 +22,13 @@
               <td class="fs-4 fw-bold text-primary"><%= performer.num %></td>
               <td class="fs-4">
                 <%= link_to performer.name, performer_path(performer), class: 'performer-link' %>
+              </td>
+              <td class="fs-4">
+                <% if performer.height.present? %>
+                  <%= performer.height %>cm
+                <% else %>
+                  <span class="text-muted">未登録</span>
+                <% end %>
               </td>
               <td>
                 <div class="d-flex gap-2">
