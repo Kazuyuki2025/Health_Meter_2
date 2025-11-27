@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_11_26_021220) do
+ActiveRecord::Schema[8.0].define(version: 2025_11_26_025336) do
   create_table "active_storage_attachments", force: :cascade do |t|
     t.string "name", null: false
     t.string "record_type", null: false
@@ -94,7 +94,6 @@ ActiveRecord::Schema[8.0].define(version: 2025_11_26_021220) do
     t.string "title"
     t.string "analysis_status", default: "pending"
     t.date "date"
-    t.json "motion_heatmap"
     t.index ["analysis_status"], name: "index_videos_on_analysis_status"
   end
 

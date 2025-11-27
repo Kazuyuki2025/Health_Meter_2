@@ -50,16 +50,9 @@ class VideosController < ApplicationController
 
       @video.update(analysis_status: :analyzing)
 
-      # 正規化モードと方法を取得（デフォルト値を設定）
-      normalization_mode = params[:normalization_mode]&.to_sym || :auto
-      normalization_method = params[:normalization_method]&.to_sym || :height
-
       DetectVideoJob.perform_later(
-        @video.id,
-        normalization_mode: normalization_mode,
-        normalization_method: normalization_method
+        @video.id
       )
-
       redirect_to @video, notice: "演者の紐付けが完了しました。詳細分析を開始します。"
     else
       redirect_to @video, alert: "演者を選択してください"

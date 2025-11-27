@@ -62,58 +62,58 @@ class Video < ApplicationRecord
     # 既存のperformanceの場合もperson_idを更新
     performance.update!(person_id: person_id) if performance.person_id != person_id
 
-    # 紐付け後、基準BBoxサイズを計算
-    calculate_reference_bbox_for_performance(performance)
+    # # 紐付け後、基準BBoxサイズを計算
+    # calculate_reference_bbox_for_performance(performance)
 
-    performance
+    # performance
   end
 
-  # 特定のperformanceに対して基準BBoxサイズを計算
-  def calculate_reference_bbox_for_performance(performance)
-    return unless performance.person_id
+  # # 特定のperformanceに対して基準BBoxサイズを計算
+  # def calculate_reference_bbox_for_performance(performance)
+  #   return unless performance.person_id
 
-    Rails.logger.info "Performance #{performance.id} の基準BBox高さを計算中..."
+  #   Rails.logger.info "Performance #{performance.id} の基準BBox高さを計算中..."
 
-    # このperson_idのDetectionデータを取得
-    person_detections = detections.where(person_id: performance.person_id)
-                                  .order(:frame_number)
-                                  .limit(100)
+  #   # このperson_idのDetectionデータを取得
+  #   person_detections = detections.where(person_id: performance.person_id)
+  #                                 .order(:frame_number)
+  #                                 .limit(100)
 
-    if person_detections.empty?
-      Rails.logger.warn "Person #{performance.person_id} の検出データがありません"
-      return
-    end
+  #   if person_detections.empty?
+  #     Rails.logger.warn "Person #{performance.person_id} の検出データがありません"
+  #     return
+  #   end
 
-    # BBox高さの平均を計算
-    heights = person_detections.map { |d| d.y2 - d.y1 }
-    avg_height = heights.sum / heights.size.to_f
+  #   # BBox高さの平均を計算
+  #   heights = person_detections.map { |d| d.y2 - d.y1 }
+  #   avg_height = heights.sum / heights.size.to_f
 
-    # performanceに常に保存（この動画でのBBox高さ）
-    performance.update!(
-      reference_bbox_height: avg_height,
-      reference_bbox_updated_at: Time.current
-    )
+  #   # performanceに常に保存（この動画でのBBox高さ）
+  #   performance.update!(
+  #     reference_bbox_height: avg_height,
+  #     reference_bbox_updated_at: Time.current
+  #   )
 
-    Rails.logger.info "Performance #{performance.id}: BBox高さ=#{avg_height.round(2)} を保存"
+  #   Rails.logger.info "Performance #{performance.id}: BBox高さ=#{avg_height.round(2)} を保存"
 
-    performer = performance.performer
+  #   performer = performance.performer
 
-    # performerに基準値がない場合のみ保存（初回のみ）
-    if performer.reference_bbox_height.blank? || performer.reference_bbox_height <= 0
-      performer.update!(reference_bbox_height: avg_height)
-      Rails.logger.info "Performer #{performer.name}: 基準BBox高さ=#{avg_height.round(2)} を初回登録"
-    else
-      Rails.logger.info "Performer #{performer.name}: 既存の基準値=#{performer.reference_bbox_height.round(2)} を使用（更新なし）"
-    end
-  end
+  #   # performerに基準値がない場合のみ保存（初回のみ）
+  #   if performer.reference_bbox_height.blank? || performer.reference_bbox_height <= 0
+  #     performer.update!(reference_bbox_height: avg_height)
+  #     Rails.logger.info "Performer #{performer.name}: 基準BBox高さ=#{avg_height.round(2)} を初回登録"
+  #   else
+  #     Rails.logger.info "Performer #{performer.name}: 既存の基準値=#{performer.reference_bbox_height.round(2)} を使用（更新なし）"
+  #   end
+  # end
 
-  # 全てのperformanceに対して基準BBoxサイズを再計算
-  def recalculate_all_reference_bboxes
-    performances.each do |performance|
-      next unless performance.person_id
-      calculate_reference_bbox_for_performance(performance)
-    end
-  end
+  # # 全てのperformanceに対して基準BBoxサイズを再計算
+  # def recalculate_all_reference_bboxes
+  #   performances.each do |performance|
+  #     next unless performance.person_id
+  #     calculate_reference_bbox_for_performance(performance)
+  #   end
+  # end
 
   def attach_thumbnail_from_file(file_path)
     return unless File.exist?(file_path)
