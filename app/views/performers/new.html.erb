@@ -2,10 +2,6 @@
   <h1 class="mb-4">演者登録</h1>
 
 <%= form_with model: @performer, local: true, html: { multipart: true, id: "upload-form" }, class: "w-25",  data: {turbo: false} do |form| %>
-  <div class="mb-3 ">
-    <%= form.label :num, "id" %>
-    <%= form.number_field :num, class: "form-control ", required: true %>
-  </div>
 
   <div class="mb-3">
     <%= form.label :name, "名前" %>

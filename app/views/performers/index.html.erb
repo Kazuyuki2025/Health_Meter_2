@@ -10,7 +10,6 @@
       <table class="table table-striped table-hover">
         <thead class="table-dark">
           <tr>
-            <th class="fs-5">ID</th>
             <th class="fs-5">名前</th>
             <th class="fs-5">身長</th>
             <th class="fs-5">操作</th>
@@ -19,7 +18,6 @@
         <tbody>
           <% @performers.each do |performer| %>
             <tr>
-              <td class="fs-4 fw-bold text-primary"><%= performer.num %></td>
               <td class="fs-4">
                 <%= link_to performer.name, performer_path(performer), class: 'performer-link' %>
               </td>

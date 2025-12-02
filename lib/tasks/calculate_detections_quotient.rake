@@ -1,8 +1,8 @@
 namespace :calculation do
   desc "Calculate detections quotient for two videos"
   task detections_quotient: :environment do
-    video1 = Video.find(248) # 1倍
-    video2 = Video.find(250) # 2倍
+    video1 = Video.find(251) # 1倍
+    video2 = Video.find(248) # 2倍
 
     detections1 = video1.detections.order(:frame_number)
     detections2 = video2.detections.order(:frame_number)
@@ -23,7 +23,7 @@ namespace :calculation do
 
       # 比が nil でなく、±0.1以上離れている箇所を数える
       [ x1_q, y1_q, x2_q, y2_q ].compact.each do |q|
-        outlier_count += 1 if (q - 2.0).abs > 0.1
+        outlier_count += 1 if (q - 2.0).abs > 1.0
       end
 
       results << {
