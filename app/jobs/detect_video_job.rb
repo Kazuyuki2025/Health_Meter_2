@@ -29,9 +29,18 @@ class DetectVideoJob < ApplicationJob
       Rails.logger.info "動画パス: #{video_path}"
       Rails.logger.info "スクリプトパス: #{script_path}"
 
+      # === 全体解析開始時間 ===
+      analysis_start_time = Time.current
+      Rails.logger.info "解析開始時間: #{analysis_start_time.strftime('%H:%M:%S.%3N')}"
+
+      # === Python検出処理時間 ===
+      python_start_time = Time.current
       command = "python3 #{script_path} #{Shellwords.escape(video_path)}"
       stdout, stderr, status = Open3.capture3(command)
+      python_end_time = Time.current
+      python_processing_time = python_end_time - python_start_time
 
+      Rails.logger.info "Python検出処理時間: #{python_processing_time.round(3)}秒"
       Rails.logger.info "DetectVideoJob stdout size=#{stdout.bytesize}"
       Rails.logger.error "DetectVideoJob stderr:\n#{stderr}" unless stderr.blank?
 
@@ -47,18 +56,38 @@ class DetectVideoJob < ApplicationJob
           parsed_data = JSON.parse(json_line.strip)
           Rails.logger.info "フレーム検出データ: #{parsed_data['frame_detections']&.size}件"
 
-          # 1. Detectionデータを保存
+          # === Detection保存時間 ===
+          save_start_time = Time.current
           save_to_detections(video, parsed_data)
+          save_end_time = Time.current
+          save_processing_time = save_end_time - save_start_time
+          Rails.logger.info "Detection保存時間: #{save_processing_time.round(3)}秒"
 
-          # # 2. 演者が紐付けられている場合、基準BBoxサイズを計算
-          # Rails.logger.info "基準BBoxサイズの計算を開始"
-          # video.recalculate_all_reference_bboxes
+          # === 活動量計算時間 ===
+          activity_start_time = Time.current
+          Rails.logger.info "活動量計算開始: #{activity_start_time.strftime('%H:%M:%S.%3N')}"
 
           calculate_service = CalculateActivity.new(video)
-          calculate_service.calculate_and_save!
+          result = calculate_service.calculate_and_save!
+
+          activity_end_time = Time.current
+          activity_processing_time = activity_end_time - activity_start_time
+          Rails.logger.info "活動量計算時間: #{activity_processing_time.round(3)}秒"
 
           video.update!(analysis_status: "completed")
           Rails.logger.info "解析と活動量計算が完了しました: video_id=#{video.id}"
+
+          # === 全体解析終了時間 ===
+          analysis_end_time = Time.current
+          total_analysis_time = analysis_end_time - analysis_start_time
+
+          Rails.logger.info "解析終了時間: #{analysis_end_time.strftime('%H:%M:%S.%3N')}"
+          Rails.logger.info "=== 詳細時間内訳 ==="
+          Rails.logger.info "  Python検出処理: #{python_processing_time.round(3)}秒 (#{(python_processing_time/total_analysis_time*100).round(1)}%)"
+          Rails.logger.info "  Detection保存: #{save_processing_time.round(3)}秒 (#{(save_processing_time/total_analysis_time*100).round(1)}%)"
+          Rails.logger.info "  活動量計算: #{activity_processing_time.round(3)}秒 (#{(activity_processing_time/total_analysis_time*100).round(1)}%)"
+          Rails.logger.info "  総解析時間: #{total_analysis_time.round(3)}秒"
+          Rails.logger.info "  処理速度: #{(parsed_data['frame_detections']&.size || 0) / total_analysis_time}件/秒"
         else
           Rails.logger.error "JSON結果が見つかりません"
           video.update!(analysis_status: "failed")

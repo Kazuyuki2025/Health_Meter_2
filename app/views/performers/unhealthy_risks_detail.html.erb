@@ -19,7 +19,7 @@
         問題のある運動一覧
       </h2>
       
-      <% low_z_activities = @statistics[:z_scores].select { |z| z[:z_score] <= -2.0 } %>
+      <% low_z_activities = @statistics[:z_scores].select { |z| z[:z_score] <= -1.0 } %>
       
       <% if low_z_activities.any? %>
         <div class="table-responsive">
@@ -85,11 +85,11 @@
             <% @statistics[:z_scores].each do |activity_data| %>
               <% 
                 z_score = activity_data[:z_score]
-                badge_class = if z_score <= -2.0
+                badge_class = if z_score <= -1.0
                   "bg-danger"
-                elsif z_score <= -1.0
+                elsif z_score <= -0.5
                   "bg-warning"
-                elsif z_score >= 1.0
+                elsif z_score >= 0.5
                   "bg-success"
                 else
                   "bg-success"

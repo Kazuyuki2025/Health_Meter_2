@@ -19,7 +19,7 @@ class VideoPlayerWithBBox {
     this.isPlaying = false;
     
     this.colors = ['#00ff00', '#ff0000', '#0000ff', '#ff00ff', '#ffff00', '#00ffff'];
-    this.personColors = {}; // 追加: Person IDごとの色マッピング
+    this.personColors = {};
     
     this.init();
   }
@@ -27,6 +27,7 @@ class VideoPlayerWithBBox {
   async init() {
     this.video.addEventListener('loadedmetadata', () => {
       this.resizeCanvas();
+      this.setupFrameControls(); // フレーム制御UIを初期化
     });
     
     window.addEventListener('resize', () => {
@@ -39,7 +40,294 @@ class VideoPlayerWithBBox {
     
     this.updateCanvas();
   }
-  
+
+  // 新しいメソッド: フレーム制御UIのセットアップ
+  setupFrameControls() {
+    // フレームジャンプ用のUIを追加
+    this.addFrameJumpControls();
+    
+    // フレームスライダーを追加
+    this.addFrameSlider();
+  }
+
+  addFrameJumpControls() {
+    // 既存のコントロール要素を取得または作成
+    let controlsContainer = document.getElementById('frameControls');
+    if (!controlsContainer) {
+      controlsContainer = document.createElement('div');
+      controlsContainer.id = 'frameControls';
+      controlsContainer.className = 'frame-controls mt-3 mb-3';
+      
+      // 動画プレイヤーの後に挿入
+      const videoContainer = this.video.parentNode;
+      videoContainer.insertAdjacentElement('afterend', controlsContainer);
+    }
+
+    controlsContainer.innerHTML = `
+      <div class="row">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <h6 class="card-title">フレームジャンプ</h6>
+              <div class="input-group">
+                <input type="number" id="frameInput" class="form-control" 
+                       placeholder="フレーム番号" min="0" max="${this.totalFrames - 1}">
+                <button class="btn btn-primary" id="jumpToFrameBtn">移動</button>
+              </div>
+              <small class="text-muted">0 ～ ${this.totalFrames - 1} フレーム</small>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-body">
+              <h6 class="card-title">フレーム操作</h6>
+              <div class="btn-group" role="group">
+                <button class="btn btn-outline-secondary" id="prevFrameBtn">◀ 前</button>
+                <button class="btn btn-outline-secondary" id="nextFrameBtn">次 ▶</button>
+                <button class="btn btn-outline-info" id="frameZeroBtn">最初</button>
+                <button class="btn btn-outline-warning" id="frameEndBtn">最後</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="row mt-2">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body">
+              <h6 class="card-title">フレームスライダー</h6>
+              <input type="range" id="frameSlider" class="form-range" 
+                     min="0" max="${this.totalFrames - 1}" value="0" step="1">
+              <div class="d-flex justify-content-between">
+                <small>0</small>
+                <small id="currentFrameDisplay">フレーム: 0</small>
+                <small>${this.totalFrames - 1}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // イベントリスナーを設定
+    this.setupFrameControlListeners();
+  }
+
+  addFrameSlider() {
+    // フレームスライダーは addFrameJumpControls() で既に追加済み
+  }
+
+  setupFrameControlListeners() {
+    // フレームジャンプボタン
+    const jumpBtn = document.getElementById('jumpToFrameBtn');
+    const frameInput = document.getElementById('frameInput');
+    
+    if (jumpBtn && frameInput) {
+      jumpBtn.addEventListener('click', () => {
+        this.jumpToFrame(parseInt(frameInput.value));
+      });
+      
+      frameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          this.jumpToFrame(parseInt(frameInput.value));
+        }
+      });
+    }
+
+    // 前/次フレームボタン
+    const prevBtn = document.getElementById('prevFrameBtn');
+    const nextBtn = document.getElementById('nextFrameBtn');
+    
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        this.jumpToFrame(this.currentFrame - 1);
+      });
+    }
+    
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        this.jumpToFrame(this.currentFrame + 1);
+      });
+    }
+
+    // 最初/最後フレームボタン
+    const frameZeroBtn = document.getElementById('frameZeroBtn');
+    const frameEndBtn = document.getElementById('frameEndBtn');
+    
+    if (frameZeroBtn) {
+      frameZeroBtn.addEventListener('click', () => {
+        this.jumpToFrame(0);
+      });
+    }
+    
+    if (frameEndBtn) {
+      frameEndBtn.addEventListener('click', () => {
+        this.jumpToFrame(this.totalFrames - 1);
+      });
+    }
+
+    // フレームスライダー
+    const frameSlider = document.getElementById('frameSlider');
+    if (frameSlider) {
+      frameSlider.addEventListener('input', (e) => {
+        this.jumpToFrame(parseInt(e.target.value));
+      });
+    }
+  }
+
+  // 新しいメソッド: 指定フレームにジャンプ
+  jumpToFrame(frameNumber) {
+    // フレーム番号の妥当性チェック
+    if (isNaN(frameNumber)) {
+      alert('有効なフレーム番号を入力してください');
+      return;
+    }
+    
+    if (frameNumber < 0) {
+      frameNumber = 0;
+    }
+    
+    if (frameNumber >= this.totalFrames) {
+      frameNumber = this.totalFrames - 1;
+    }
+    
+    // 動画の時間を計算してシーク
+    const targetTime = frameNumber / this.fps;
+    this.video.currentTime = targetTime;
+    
+    // 現在フレームを更新
+    this.currentFrame = frameNumber;
+    
+    // UIを更新
+    this.updateFrameUI();
+    
+    console.log(`Jumped to frame ${frameNumber} (time: ${targetTime.toFixed(3)}s)`);
+  }
+
+  // 新しいメソッド: フレーム関連UIの更新
+  updateFrameUI() {
+    // フレーム番号の表示を更新
+    const frameInput = document.getElementById('frameInput');
+    if (frameInput) {
+      frameInput.value = this.currentFrame;
+    }
+    
+    // スライダーの位置を更新
+    const frameSlider = document.getElementById('frameSlider');
+    if (frameSlider) {
+      frameSlider.value = this.currentFrame;
+    }
+    
+    // 現在フレーム表示を更新
+    const currentFrameDisplay = document.getElementById('currentFrameDisplay');
+    if (currentFrameDisplay) {
+      currentFrameDisplay.textContent = `フレーム: ${this.currentFrame}`;
+    }
+    
+    // 既存のUIも更新
+    this.updateUI();
+    this.updateCanvas();
+  }
+
+  // 修正されたメソッド: 既存のUIアップデート
+  updateUI() {
+    const frameInfo = document.getElementById('frameInfo');
+    if (frameInfo) {
+      frameInfo.textContent = `Frame: ${this.currentFrame}`;
+    }
+    
+    const detectionCount = document.getElementById('detectionCount');
+    if (detectionCount) {
+      const detections = this.framesData[this.currentFrame] || [];
+      detectionCount.textContent = `検出: ${detections.length}人`;
+    }
+
+    // 時間情報も表示
+    const timeInfo = document.getElementById('timeInfo');
+    if (timeInfo) {
+      const currentTime = this.currentFrame / this.fps;
+      timeInfo.textContent = `時間: ${currentTime.toFixed(2)}秒`;
+    }
+  }
+
+  // 修正されたメソッド: レンダリングループ
+  renderLoop() {
+    if (!this.isPlaying) return;
+
+    this.currentFrame = Math.floor(this.video.currentTime * this.fps);
+    this.updateFrameUI(); // フレーム関連UI全体を更新
+
+    requestAnimationFrame(() => this.renderLoop());
+  }
+
+  // 修正されたメソッド: イベントリスナー設定
+  setupEventListeners() {
+    this.video.addEventListener('play', () => {
+      this.isPlaying = true;
+      this.renderLoop();
+    });
+    
+    this.video.addEventListener('pause', () => {
+      this.isPlaying = false;
+    });
+    
+    this.video.addEventListener('seeked', () => {
+      this.currentFrame = Math.floor(this.video.currentTime * this.fps);
+      this.updateFrameUI();
+    });
+    
+    const toggleBboxBtn = document.getElementById('toggleBbox');
+    if (toggleBboxBtn) {
+      toggleBboxBtn.addEventListener('click', () => {
+        this.showBbox = !this.showBbox;
+        toggleBboxBtn.textContent = this.showBbox 
+          ? 'Bounding Box 非表示' 
+          : 'Bounding Box 表示';
+        this.updateCanvas();
+      });
+    }
+    
+    const toggleLabelsBtn = document.getElementById('toggleLabels');
+    if (toggleLabelsBtn) {
+      toggleLabelsBtn.addEventListener('click', () => {
+        this.showLabels = !this.showLabels;
+        toggleLabelsBtn.textContent = this.showLabels 
+          ? 'ラベル 非表示' 
+          : 'ラベル 表示';
+        this.updateCanvas();
+      });
+    }
+
+    // キーボードショートカットを追加
+    document.addEventListener('keydown', (e) => {
+      // 入力フィールドにフォーカスがある場合は無視
+      if (document.activeElement.tagName === 'INPUT') return;
+      
+      switch(e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          this.jumpToFrame(this.currentFrame - 1);
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          this.jumpToFrame(this.currentFrame + 1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          this.jumpToFrame(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          this.jumpToFrame(this.totalFrames - 1);
+          break;
+      }
+    });
+  }
+
+  // 既存のメソッドはそのまま保持
   resizeCanvas() {
     const rect = this.video.getBoundingClientRect();
     this.canvas.width = rect.width;
@@ -63,20 +351,37 @@ class VideoPlayerWithBBox {
       
       this.framesData = data.frames;
       this.totalFrames = data.totalFrames;
-      this.performerColors = data.performerColors || {}; // 追加: サーバーから色情報取得
+      this.performerColors = data.performerColors || {};
       
       console.log(`Loaded ${Object.keys(this.framesData).length} frames with ${data.totalDetections} total detections`);
       console.log('Performer colors:', this.performerColors);
+      
+      // フレーム数が判明したらコントロールを更新
+      if (this.totalFrames) {
+        this.updateFrameControlsMaxValues();
+      }
       
     } catch (error) {
       console.error('フレームデータの読み込みエラー:', error);
     }
   }
+
+  // 新しいメソッド: フレームコントロールの最大値を更新
+  updateFrameControlsMaxValues() {
+    const frameInput = document.getElementById('frameInput');
+    const frameSlider = document.getElementById('frameSlider');
+    
+    if (frameInput) {
+      frameInput.max = this.totalFrames - 1;
+    }
+    
+    if (frameSlider) {
+      frameSlider.max = this.totalFrames - 1;
+    }
+  }
   
-  // 追加: Person IDに基づいて色を取得
   getColorForPerson(personId) {
     if (!this.personColors[personId]) {
-      // まだ色が割り当てられていない場合、新しい色を割り当て
       const colorIndex = Object.keys(this.personColors).length % this.colors.length;
       this.personColors[personId] = this.colors[colorIndex];
       console.log(`Assigned color ${this.colors[colorIndex]} to person ID ${personId}`);
@@ -84,74 +389,11 @@ class VideoPlayerWithBBox {
     return this.personColors[personId];
   }
   
-  // 追加: Performer名に基づいて色を取得
   getColorForPerformer(performerName) {
     if (this.performerColors && this.performerColors[performerName]) {
       return this.performerColors[performerName];
     }
     return null;
-  }
-  
-  setupEventListeners() {
-    this.video.addEventListener('play', () => {
-      this.isPlaying = true;
-      this.renderLoop();
-    });
-    
-    this.video.addEventListener('pause', () => {
-      this.isPlaying = false;
-    });
-    
-    this.video.addEventListener('seeked', () => {
-      this.updateCanvas();
-      this.updateUI();
-    });
-    
-    const toggleBboxBtn = document.getElementById('toggleBbox');
-    if (toggleBboxBtn) {
-      toggleBboxBtn.addEventListener('click', () => {
-        this.showBbox = !this.showBbox;
-        toggleBboxBtn.textContent = this.showBbox 
-          ? 'Bounding Box 非表示' 
-          : 'Bounding Box 表示';
-        this.updateCanvas();
-      });
-    }
-    
-    // ラベル表示切り替えボタン
-    const toggleLabelsBtn = document.getElementById('toggleLabels');
-    if (toggleLabelsBtn) {
-      toggleLabelsBtn.addEventListener('click', () => {
-        this.showLabels = !this.showLabels;
-        toggleLabelsBtn.textContent = this.showLabels 
-          ? 'ラベル 非表示' 
-          : 'ラベル 表示';
-        this.updateCanvas();
-      });
-    }
-  }
-  
-  renderLoop() {
-    if (!this.isPlaying) return;
-
-    this.currentFrame = Math.floor(this.video.currentTime * this.fps);
-    this.updateCanvas();
-    this.updateUI();
-
-    requestAnimationFrame(() => this.renderLoop());
-  }
-  
-  updateUI() {
-    const frameInfo = document.getElementById('frameInfo');
-    if (frameInfo) {
-      frameInfo.textContent = `Frame: ${this.currentFrame}`;
-    }
-    
-    const detectionCount = document.getElementById('detectionCount');
-    if (detectionCount) {
-      const detections = this.framesData[this.currentFrame] || [];
-      detectionCount.textContent = `検出: ${detections.length}人`;
-    }
   }
   
   updateCanvas() {
@@ -160,7 +402,7 @@ class VideoPlayerWithBBox {
     
     const detections = this.framesData[this.currentFrame] || [];
     detections.forEach((detection) => {
-      this.drawBoundingBox(detection); // indexは不要になった
+      this.drawBoundingBox(detection);
     });
   }
   
@@ -175,17 +417,13 @@ class VideoPlayerWithBBox {
     const width = scaledX2 - scaledX1;
     const height = scaledY2 - scaledY1;
     
-    // 色の優先順位:
-    // 1. Performer名ベースの色（演者紐付け済み）
-    // 2. Person IDベースの色
-    // 3. デフォルトの緑色
     let color;
     if (performerName) {
       color = this.getColorForPerformer(performerName) || this.getColorForPerson(personId);
     } else if (personId !== undefined && personId !== null) {
       color = this.getColorForPerson(personId);
     } else {
-      color = '#00ff00'; // デフォルト
+      color = '#00ff00';
     }
     
     this.ctx.strokeStyle = color;
@@ -193,7 +431,6 @@ class VideoPlayerWithBBox {
     this.ctx.strokeRect(scaledX1, scaledY1, width, height);
     
     if (this.showLabels) {
-      // ラベルテキストの決定
       let label;
       if (performerName) {
         label = `${performerName}: ${activityValue?.toFixed(2) || 'N/A'}`;
@@ -221,7 +458,6 @@ document.addEventListener('turbo:load', () => {
   }
 });
 
-// ページロード時に自動初期化
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('videoPlayer')) {
     new VideoPlayerWithBBox();

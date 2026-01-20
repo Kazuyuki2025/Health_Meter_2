@@ -32,169 +32,201 @@ class CalculateActivity
     end
 
     performer = performance.performer
-
     performer_height = performer.height
 
     if performer_height.blank? || performer_height <= 0
       Rails.logger.info "演者 #{performer.name}: 身長が登録されていません"
       return
     end
-    # if force_no_normalization
-    #   Rails.logger.info "演者 #{performer.name}: 正規化なし（強制モード）"
-    #   calculate_without_normalization(performance, detections)
-    #   return
-    # end
 
-    # 高さのみをチェック
-    # reference_height = get_reference_height(performance)
     Rails.logger.info "演者 #{performer.name} 身長 #{performer_height} 正規化して計算"
     calculate_with_normalization(performance, detections, performer_height)
-    # if reference_height.blank? || reference_height <= 0
-    #   Rails.logger.info "演者 #{performer.name}: 基準高さなし（正規化なし）"
-    #   calculate_without_normalization(performance, detections)
-    # else
-    #   Rails.logger.info "演者 #{performer.name}: 基準高さ=#{reference_height.round(2)}（高さで正規化）"
-    #   calculate_with_normalization(performance, detections, reference_height)
-    # end
-    # end
-
-    # def get_reference_height(performance)
-    #   performance.reference_bbox_height || performance.performer&.reference_bbox_height
-    # end
-
-    # def calculate_without_normalization(performance, detections)
-    #   performance.activities.destroy_all
-    #   segments = divide_into_segments(detections, num_segments)    # if reference_height.blank? || reference_height <= 0
-    #   Rails.logger.info "演者 #{performer.name}: 基準高さなし（正規化なし）"
-    #   calculate_without_normalization(performance, detections)
-    # else
-    #   Rails.logger.info "演者 #{performer.name}: 基準高さ=#{reference_height.round(2)}（高さで正規化）"
-    #   calculate_with_normalization(performance, detections, reference_height)
-    # end
-    #
-    # segments = divide_into_segments(detections, num_segments)
-
-    # segments.each_with_index do |segment_detections, index|
-    #   next if segment_detections.empty?
-
-    # avg_activity = calculate_raw_activity(segment_detections)
-
-    # Activity.create!(
-    #   performance: performance,
-    #   value: avg_activity,
-    #   start_frame: segment_detections.first.frame_number,
-    #   end_frame: segment_detections.last.frame_number
-    # )
-
-    # Rails.logger.info "  セグメント#{index + 1}: 活動量=#{avg_activity.round(2)}（正規化なし）"
-    #   end
   end
 
+  # 方針:
+  # - フレームごとのactivityを detections.activity に保存（BBox表示用）
+  # - セグメントごとのactivityを activities.value に保存（集計/グラフ用）
+  # - 計算は二重にせず、フレームごとの値からセグメント値(平均)を作る
   def calculate_with_normalization(performance, detections, performer_height)
-    performance.activities.destroy_all
-    segments = divide_into_segments(detections, num_segments)
+    performance.activities.delete_all
+    segments = divide_into_segments(detections.to_a, num_segments)
 
     segments.each_with_index do |segment_detections, index|
       next if segment_detections.empty?
 
-      normalized_activity = calculate_normalized_activity(
-        segment_detections,
-        performer_height
-      )
+      start_frame = segment_detections.first.frame_number
+      end_frame   = segment_detections.last.frame_number
+
+      # 1回だけ：フレームごとのactivityを計算
+      frame_activity = calculate_framewise_activity_map(segment_detections, performer_height)
+
+      # セグメント値：フレーム値の平均（先頭フレームは0.0固定なので除外）
+      values_for_segment = frame_activity
+                             .reject { |frame, _| frame == start_frame }
+                             .values
+                             .compact
+
+      segment_activity = if values_for_segment.empty?
+        0.0
+      else
+        values_for_segment.sum / values_for_segment.size
+      end
 
       Activity.create!(
         performance: performance,
-        value: normalized_activity,
-        start_frame: segment_detections.first.frame_number,
-        end_frame: segment_detections.last.frame_number
+        value: segment_activity,
+        start_frame: start_frame,
+        end_frame: end_frame
       )
 
-      Rails.logger.info "  セグメント#{index + 1}: 活動量=#{normalized_activity.round(2)}（正規化済み）"
+      # フレームごとの値を detections.activity に保存（BBox表示用）
+      # ※まず動く版（11582件程度なら許容の可能性）。重い場合は upsert_all に最適化する。
+      segment_detections.each do |d|
+        v = frame_activity[d.frame_number]
+        next if v.nil?
+        d.update_columns(activity: v)
+      end
+
+      Rails.logger.info "  セグメント#{index + 1}: 活動量(avg)=#{segment_activity.round(2)}（framewise→segment平均）"
     end
   end
 
+  # フレームごとの activity（cm/sec相当をscale_divisorで割った値）を作る
+  # 戻り値: { frame_number(Integer) => activity(Float) }
+  def calculate_framewise_activity_map(detections, performer_height)
+    return {} if detections.count < 2
+
+    # --- BBox高さの推定は冒頭5秒(150 frames)のみをキャリブレーションとして使用 ---
+    calibration_frames = 150
+    calibration_detections = detections.first(calibration_frames)
+
+    heights = calibration_detections
+                .map { |d| (d.y2 - d.y1).abs.to_f }
+                .reject(&:zero?)
+    return {} if heights.empty?
+
+    bbox_height_px = heights.sort[heights.length / 2] # median
+    min_bbox_height_px = 20.0
+    bbox_height_px = [bbox_height_px, min_bbox_height_px].max
+
+    cm_per_px = performer_height.to_f / bbox_height_px.to_f
+
+    ema_alpha = 0.25
+    deadband_cm = 0.8
+    max_move_cm_per_frame = 30.0
+
+    fps = 30.0
+    scale_divisor = 3.0
+
+    first = detections.first
+    cx = (first.x1 + first.x2) / 2.0
+    cy = (first.y1 + first.y2) / 2.0
+
+    ema_cx = cx
+    ema_cy = cy
+
+    frame_to_activity = {}
+    frame_to_activity[first.frame_number] = 0.0
+
+    detections.each_with_index do |d, i|
+      next if i == 0
+
+      cx = (d.x1 + d.x2) / 2.0
+      cy = (d.y1 + d.y2) / 2.0
+
+      prev_ema_cx = ema_cx
+      prev_ema_cy = ema_cy
+
+      ema_cx = ema_alpha * cx + (1.0 - ema_alpha) * ema_cx
+      ema_cy = ema_alpha * cy + (1.0 - ema_alpha) * ema_cy
+
+      dx_cm = (ema_cx - prev_ema_cx).abs * cm_per_px
+      dy_cm = (ema_cy - prev_ema_cy).abs * cm_per_px
+      move_cm = dx_cm + dy_cm
+
+      move_cm = 0.0 if move_cm < deadband_cm
+      move_cm = [move_cm, max_move_cm_per_frame].min
+
+      cm_per_sec = move_cm * fps
+      activity_value = (cm_per_sec / scale_divisor)
+
+      frame_to_activity[d.frame_number] = activity_value
+    end
+
+    frame_to_activity
+  end
+
   def divide_into_segments(detections, num_segments)
-    total_frames = detections.count
-    segment_size = (total_frames.to_f / num_segments).ceil
+    total = detections.size
+    return [] if total == 0
+
+    segment_size = (total.to_f / num_segments).ceil
 
     num_segments.times.map do |i|
       start_idx = i * segment_size
-      end_idx = [ (i + 1) * segment_size, total_frames ].min
+      end_idx = [ (i + 1) * segment_size, total ].min
       detections[start_idx...end_idx] || []
     end
   end
 
-  # def calculate_raw_activity(detections)
-  #   return 0.0 if detections.count < 3
-
-  #   total_evaluation = 0.0
-  #   coordinate = [ 0, 0, 0, 0 ]
-  #   velocity = [ 0, 0, 0, 0 ]
-  #   pre_velocity = [ 0, 0, 0, 0 ]
-
-  #   detections.each do |detection|
-  #     x1, x2, y1, y2 = detection.x1, detection.x2, detection.y1, detection.y2
-
-  #     vx1 = (x1 - coordinate[0]).abs
-  #     vx2 = (x2 - coordinate[1]).abs
-  #     vy1 = (y1 - coordinate[2]).abs
-  #     vy2 = (y2 - coordinate[3]).abs
-
-  #     velocity = [ vx1, vx2, vy1, vy2 ]
-
-  #     evaluation = (velocity[0] - pre_velocity[0]).abs +
-  #                  (velocity[1] - pre_velocity[1]).abs +
-  #                  (velocity[2] - pre_velocity[2]).abs +
-  #                  (velocity[3] - pre_velocity[3]).abs
-
-  #     evaluation = 0.0 if evaluation > 100
-
-  #     coordinate = [ x1, x2, y1, y2 ]
-  #     pre_velocity = velocity
-
-  #     total_evaluation += evaluation
-  #   end
-
-  #   detections.count > 0 ? total_evaluation / detections.count : 0.0
-  # end
-
+  # 旧: セグメント平均を直接計算する実装。
+  # 現方針（フレームごとの値を採用）では二重計算になるため呼び出していないが、
+  # 比較・検証用として残す。
   def calculate_normalized_activity(detections, performer_height)
     return 0.0 if detections.count < 3
-    # return 0.0 if performer_height.nil? || performer_height <= 0
 
-    total_normalized_evaluation = 0.0
+    heights = detections.map { |d| (d.y2 - d.y1).abs.to_f }.reject(&:zero?)
+    return 0.0 if heights.empty?
+
+    bbox_height_px = heights.sort[heights.length / 2] # median
+    min_bbox_height_px = 20.0
+    bbox_height_px = [ bbox_height_px, min_bbox_height_px ].max
+
+    cm_per_px = performer_height.to_f / bbox_height_px.to_f
+
+    ema_alpha = 0.25
+    deadband_cm = 1.0
+    max_move_cm_per_frame = 10.0
 
     first = detections.first
-    coordinate = [ first.x1, first.x2, first.y1, first.y2 ]
-    pre_velocity = [ 0, 0, 0, 0 ]
+    cx = (first.x1 + first.x2) / 2.0
+    cy = (first.y1 + first.y2) / 2.0
 
-    detections.each_with_index do |detection, i|
+    ema_cx = cx
+    ema_cy = cy
+
+    total = 0.0
+    steps = 0
+
+    detections.each_with_index do |d, i|
       next if i == 0
 
-      x1, x2, y1, y2 = detection.x1, detection.x2, detection.y1, detection.y2
+      cx = (d.x1 + d.x2) / 2.0
+      cy = (d.y1 + d.y2) / 2.0
 
-      scale_ratio = performer_height / [ (y2 - y1).abs ].max
+      prev_ema_cx = ema_cx
+      prev_ema_cy = ema_cy
 
-      velocity = [
-        (x1 - coordinate[0]).abs* scale_ratio,
-        (x2 - coordinate[1]).abs* scale_ratio,
-        (y1 - coordinate[2]).abs* scale_ratio,
-        (y2 - coordinate[3]).abs* scale_ratio
-      ]
+      ema_cx = ema_alpha * cx + (1.0 - ema_alpha) * ema_cx
+      ema_cy = ema_alpha * cy + (1.0 - ema_alpha) * ema_cy
 
-      evaluation = (velocity[0] - pre_velocity[0]).abs +
-                   (velocity[1] - pre_velocity[1]).abs +
-                   (velocity[2] - pre_velocity[2]).abs +
-                   (velocity[3] - pre_velocity[3]).abs
+      dx_cm = (ema_cx - prev_ema_cx).abs * cm_per_px
+      dy_cm = (ema_cy - prev_ema_cy).abs * cm_per_px
+      move_cm = dx_cm + dy_cm
 
-      evaluation = 0.0 if evaluation > 100
+      move_cm = 0.0 if move_cm < deadband_cm
+      move_cm = [ move_cm, max_move_cm_per_frame ].min
 
-      total_normalized_evaluation += evaluation
-
-      coordinate = [ x1, x2, y1, y2 ]
-      pre_velocity = velocity
+      total += move_cm
+      steps += 1
     end
 
-    total_normalized_evaluation / (detections.count - 1)
+    avg_cm_per_frame = steps > 0 ? (total / steps) : 0.0
+
+    fps = 30.0
+    cm_per_sec = avg_cm_per_frame * fps # cm/sec
+
+    scale_divisor = 3.0
+    (cm_per_sec / scale_divisor)
   end
 end

@@ -112,7 +112,7 @@ class Performer < ApplicationRecord
     end
   end
 
-  low_z_count = z_scores.count { |z| z[:z_score] <= -2.0 }
+  low_z_count = z_scores.count { |z| z[:z_score] <= -1.0 }
 
   {
     latest_performance_date: latest_performance.video.date,
