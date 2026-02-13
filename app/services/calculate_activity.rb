@@ -1,9 +1,10 @@
 class CalculateActivity
-  attr_reader :video, :num_segments
+  attr_reader :video, :num_segments, :activity_method
 
-  def initialize(video, num_segments: 13)
+  def initialize(video, num_segments: 13, activity_method: :ema)
     @video = video
     @num_segments = num_segments
+    @activity_method = activity_method.to_sym
   end
 
   def calculate_and_save!
@@ -43,10 +44,6 @@ class CalculateActivity
     calculate_with_normalization(performance, detections, performer_height)
   end
 
-  # 方針:
-  # - フレームごとのactivityを detections.activity に保存（BBox表示用）
-  # - セグメントごとのactivityを activities.value に保存（集計/グラフ用）
-  # - 計算は二重にせず、フレームごとの値からセグメント値(平均)を作る
   def calculate_with_normalization(performance, detections, performer_height)
     performance.activities.delete_all
     segments = divide_into_segments(detections.to_a, num_segments)
@@ -58,7 +55,15 @@ class CalculateActivity
       end_frame   = segment_detections.last.frame_number
 
       # 1回だけ：フレームごとのactivityを計算
-      frame_activity = calculate_framewise_activity_map(segment_detections, performer_height)
+      frame_activity =
+        case activity_method
+        when :ema
+          calculate_ema(segment_detections, performer_height)
+        when :basic
+          calculate_basic(segment_detections, performer_height)
+        else
+          raise ArgumentError, "Unknown activity_method: #{activity_method.inspect} (expected :ema or :basic)"
+        end
 
       # セグメント値：フレーム値の平均（先頭フレームは0.0固定なので除外）
       values_for_segment = frame_activity
@@ -79,8 +84,6 @@ class CalculateActivity
         end_frame: end_frame
       )
 
-      # フレームごとの値を detections.activity に保存（BBox表示用）
-      # ※まず動く版（11582件程度なら許容の可能性）。重い場合は upsert_all に最適化する。
       segment_detections.each do |d|
         v = frame_activity[d.frame_number]
         next if v.nil?
@@ -91,12 +94,9 @@ class CalculateActivity
     end
   end
 
-  # フレームごとの activity（cm/sec相当をscale_divisorで割った値）を作る
-  # 戻り値: { frame_number(Integer) => activity(Float) }
-  def calculate_framewise_activity_map(detections, performer_height)
+  def calculate_ema(detections, performer_height)
     return {} if detections.count < 2
 
-    # --- BBox高さの推定は冒頭5秒(150 frames)のみをキャリブレーションとして使用 ---
     calibration_frames = 150
     calibration_detections = detections.first(calibration_frames)
 
@@ -105,14 +105,16 @@ class CalculateActivity
                 .reject(&:zero?)
     return {} if heights.empty?
 
-    bbox_height_px = heights.sort[heights.length / 2] # median
+    bbox_height_px = heights.sort[heights.length / 2] # 中央値
     min_bbox_height_px = 20.0
-    bbox_height_px = [bbox_height_px, min_bbox_height_px].max
+    bbox_height_px = [ bbox_height_px, min_bbox_height_px ].max
+
+    Rails.logger.info "BBoxの高さ:#{bbox_height_px}px"
 
     cm_per_px = performer_height.to_f / bbox_height_px.to_f
 
-    ema_alpha = 0.25
-    deadband_cm = 0.8
+    ema_alpha = 1.0
+    deadband_cm = 1.5
     max_move_cm_per_frame = 30.0
 
     fps = 30.0
@@ -142,15 +144,83 @@ class CalculateActivity
 
       dx_cm = (ema_cx - prev_ema_cx).abs * cm_per_px
       dy_cm = (ema_cy - prev_ema_cy).abs * cm_per_px
+
       move_cm = dx_cm + dy_cm
 
       move_cm = 0.0 if move_cm < deadband_cm
-      move_cm = [move_cm, max_move_cm_per_frame].min
+      move_cm = [ move_cm, max_move_cm_per_frame ].min
 
       cm_per_sec = move_cm * fps
       activity_value = (cm_per_sec / scale_divisor)
 
       frame_to_activity[d.frame_number] = activity_value
+    end
+
+    frame_to_activity
+  end
+
+  def calculate_basic(detections, performer_height)
+    return {} if detections.count < 2
+
+    # --- scale (cm/px) を冒頭150フレームから推定（中央値） ---
+    calibration_frames = 150
+    calibration_detections = detections.first(calibration_frames)
+
+    heights = calibration_detections
+                .map { |d| (d.y2 - d.y1).abs.to_f }
+                .reject(&:zero?)
+    return {} if heights.empty?
+
+    bbox_height_px = heights.sort[heights.length / 2] # median
+    min_bbox_height_px = 20.0
+    bbox_height_px = [ bbox_height_px, min_bbox_height_px ].max
+
+    cm_per_px = performer_height.to_f / bbox_height_px.to_f
+
+    deadband_cm = 0.5
+    max_eval_cm_per_frame = 30.0
+
+    # Basic側にもEMA（速度ベクトルに対するEMA）を導入
+    ema_alpha = 0.25
+
+    first = detections.first
+    prev_coord = [ first.x1.to_f, first.x2.to_f, first.y1.to_f, first.y2.to_f ]
+    prev_velocity_cm = [ 0.0, 0.0, 0.0, 0.0 ]
+    ema_velocity_cm = [ 0.0, 0.0, 0.0, 0.0 ]
+
+    frame_to_activity = {}
+    frame_to_activity[first.frame_number] = 0.0
+
+    detections.each_with_index do |d, i|
+      next if i == 0
+
+      coord = [ d.x1.to_f, d.x2.to_f, d.y1.to_f, d.y2.to_f ]
+
+      raw_velocity_cm = [
+        (coord[0] - prev_coord[0]).abs * cm_per_px,
+        (coord[1] - prev_coord[1]).abs * cm_per_px,
+        (coord[2] - prev_coord[2]).abs * cm_per_px,
+        (coord[3] - prev_coord[3]).abs * cm_per_px
+      ]
+
+      # 速度(4次元)をEMAで平滑化
+      ema_velocity_cm = ema_velocity_cm.zip(raw_velocity_cm).map do |ema_v, v|
+        ema_alpha * v + (1.0 - ema_alpha) * ema_v
+      end
+
+      # 旧方式の「速度差分」を、平滑化後の速度で評価
+      eval_cm = (ema_velocity_cm[0] - prev_velocity_cm[0]).abs +
+                (ema_velocity_cm[1] - prev_velocity_cm[1]).abs +
+                (ema_velocity_cm[2] - prev_velocity_cm[2]).abs +
+                (ema_velocity_cm[3] - prev_velocity_cm[3]).abs
+
+      eval_cm = 0.0 if eval_cm < deadband_cm
+      eval_cm = [ eval_cm, max_eval_cm_per_frame ].min
+
+      frame_to_activity[d.frame_number] = eval_cm
+
+      prev_coord = coord
+      prev_velocity_cm = ema_velocity_cm
     end
 
     frame_to_activity
@@ -167,66 +237,5 @@ class CalculateActivity
       end_idx = [ (i + 1) * segment_size, total ].min
       detections[start_idx...end_idx] || []
     end
-  end
-
-  # 旧: セグメント平均を直接計算する実装。
-  # 現方針（フレームごとの値を採用）では二重計算になるため呼び出していないが、
-  # 比較・検証用として残す。
-  def calculate_normalized_activity(detections, performer_height)
-    return 0.0 if detections.count < 3
-
-    heights = detections.map { |d| (d.y2 - d.y1).abs.to_f }.reject(&:zero?)
-    return 0.0 if heights.empty?
-
-    bbox_height_px = heights.sort[heights.length / 2] # median
-    min_bbox_height_px = 20.0
-    bbox_height_px = [ bbox_height_px, min_bbox_height_px ].max
-
-    cm_per_px = performer_height.to_f / bbox_height_px.to_f
-
-    ema_alpha = 0.25
-    deadband_cm = 1.0
-    max_move_cm_per_frame = 10.0
-
-    first = detections.first
-    cx = (first.x1 + first.x2) / 2.0
-    cy = (first.y1 + first.y2) / 2.0
-
-    ema_cx = cx
-    ema_cy = cy
-
-    total = 0.0
-    steps = 0
-
-    detections.each_with_index do |d, i|
-      next if i == 0
-
-      cx = (d.x1 + d.x2) / 2.0
-      cy = (d.y1 + d.y2) / 2.0
-
-      prev_ema_cx = ema_cx
-      prev_ema_cy = ema_cy
-
-      ema_cx = ema_alpha * cx + (1.0 - ema_alpha) * ema_cx
-      ema_cy = ema_alpha * cy + (1.0 - ema_alpha) * ema_cy
-
-      dx_cm = (ema_cx - prev_ema_cx).abs * cm_per_px
-      dy_cm = (ema_cy - prev_ema_cy).abs * cm_per_px
-      move_cm = dx_cm + dy_cm
-
-      move_cm = 0.0 if move_cm < deadband_cm
-      move_cm = [ move_cm, max_move_cm_per_frame ].min
-
-      total += move_cm
-      steps += 1
-    end
-
-    avg_cm_per_frame = steps > 0 ? (total / steps) : 0.0
-
-    fps = 30.0
-    cm_per_sec = avg_cm_per_frame * fps # cm/sec
-
-    scale_divisor = 3.0
-    (cm_per_sec / scale_divisor)
   end
 end

@@ -1,7 +1,7 @@
 namespace :video do
   desc "Export Detections of the last video to JSON in public"
   task export_detections: :environment do
-    video = Video.find(248)
+    video = Video.find(260)
     puts "Exporting detections for video: #{video.title} (id=#{video.id})"
 
   data = {
