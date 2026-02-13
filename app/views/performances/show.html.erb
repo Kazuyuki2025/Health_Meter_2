@@ -1,0 +1,106 @@
+<!-- app/views/performances/show.html.erb -->
+<div class="container mt-4">
+  <div class="performance-header mb-4">
+    <h1><%= @performance.performer.name %> の活動量</h1>
+    <div class="performance-info">
+      <span class="text-muted">動画: <%= link_to @video.title, @video %></span>
+      <span class="text-muted ms-3">日付: <%= @performance.date %></span>
+    </div>
+  </div>
+
+  <!-- 動画プレイヤー -->
+  <div class="video-section mb-4">
+    <% if @video.content.attached? %>
+      <div class="video-container">
+        <video controls width="100%" style="max-width: 800px;" class="rounded shadow">
+          <source src="<%= rails_blob_path(@video.content, disposition: "inline") %>" type="video/mp4">
+        </video>
+      </div>
+    <% end %>
+  </div>
+
+  <!-- 統計サマリー -->
+  <div class="stats-summary mb-4">
+    <div class="row">
+      <div class="col-md-4">
+        <div class="stat-card">
+          <h4>平均活動量</h4>
+          <p class="stat-value"><%= sprintf("%.2f", @activity_data[:average]) %></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 運動種目別詳細 -->
+  <div class="segment-details mb-4">
+    <h1 class="activity-title">運動種目別活動量</h1>
+    
+    <!-- テーブル表示 -->
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th style="width: 70%;">運動種目</th>
+            <th style="width: 30%;">活動量</th>
+          </tr>
+        </thead>
+        <tbody>
+        <% activity_values = @performance.all_activity_values %>
+        <% Activity::ACTIVITY_TYPES.each_with_index do |(index, name), array_index| %>
+          <% value = activity_values[array_index] %>
+          <tr>
+            <td><strong><%= Activity.activity_name(index) %></strong></td>
+            <td><%= sprintf("%.2f", value) %></td>
+          </tr>
+        <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+.performance-header {
+  border-bottom: 2px solid #e9ecef;
+  padding-bottom: 1rem;
+}
+
+.performance-info {
+  margin-top: 0.5rem;
+}
+
+.video-container {
+  text-align: center;
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 10px;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #007bff;
+  margin: 0;
+}
+
+.actions {
+  text-align: center;
+  padding: 2rem 0;
+  border-top: 2px solid #e9ecef;
+}
+
+/* テーブルの運動名を太字にする */
+.table td:first-child {
+  font-weight: 600;
+  color: #495057;
+}
+</style>

@@ -47,3 +47,5 @@
 .env
 /venv/
 /myenv/*
+/public/first_frame/
+/public/*.json

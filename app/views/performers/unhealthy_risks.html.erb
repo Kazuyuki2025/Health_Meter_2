@@ -1,0 +1,198 @@
+<%# app/views/performers/unhealthy_risks.html.erb %>
+<div class="container mt-4">
+  <!-- ページヘッダー -->
+  <div class="row mb-4">
+    <div class="col">
+      <h1 class="display-5 fw-bold text-black">
+        体調不良の疑いがある演者
+      </h1>
+    </div>
+  </div>
+
+  <!-- 統計サマリー -->
+  <div class="row g-4 mb-5">
+    <div class="col-lg-3 col-md-6">
+      <div class="card border-danger h-100">
+        <div class="card-body text-center">
+          <i class="fas fa-exclamation-triangle text-danger fs-1 mb-2"></i>
+          <h5 class="card-title text-danger">リスクあり</h5>
+          <% risk_count = (@performers_risk_data&.count { |data| data[:statistics] && data[:statistics][:low_z_count] > 0 } || 0) %>
+          <h2 class="text-danger fw-bold"><%= risk_count %>名</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card border-success h-100">
+        <div class="card-body text-center">
+          <i class="fas fa-check-circle text-success fs-1 mb-2"></i>
+          <h5 class="card-title text-success">正常</h5>
+          <% normal_count = (@performers_risk_data&.count { |data| data[:statistics] && data[:statistics][:low_z_count] == 0 } || 0) %>
+          <h2 class="text-success fw-bold"><%= normal_count %>名</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card border-secondary h-100">
+        <div class="card-body text-center">
+          <i class="fas fa-question-circle text-secondary fs-1 mb-2"></i>
+          <h5 class="card-title text-secondary">データ不足</h5>
+          <% no_data_count = (@all_performers_data&.count { |data| data[:statistics].nil? } || 0) %>
+          <h2 class="text-secondary fw-bold"><%= no_data_count %>名</h2>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-3 col-md-6">
+      <div class="card border-primary h-100">
+        <div class="card-body text-center">
+          <i class="fas fa-users text-primary fs-1 mb-2"></i>
+          <h5 class="card-title text-primary">全演者</h5>
+          <h2 class="text-primary fw-bold"><%= @all_performers_data&.count || 0 %>名</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- リスクがある演者の一覧 -->
+  <% risk_performers = @performers_risk_data&.select { |data| data[:statistics] && data[:statistics][:low_z_count] > 0 } || [] %>
+
+  <% if risk_performers.any? %>
+    <div class="card shadow">
+      <div class="card-header bg-danger text-white">
+        <h3 class="card-title mb-0">
+          <i class="fas fa-exclamation-triangle"></i>
+          体調不良リスクがある演者（<%= risk_performers.count %>名）
+        </h3>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-dark">
+              <tr>
+                <th class="py-3 px-4">
+                  <i class="fas fa-user me-2"></i>演者名
+                </th>
+                <th class="py-3 px-4">
+                  <i class="fas fa-calendar me-2"></i>撮影日
+                </th>
+                <th class="py-3 px-4">
+                  <i class="fas fa-exclamation-triangle me-2"></i>リスク項目数
+                </th>
+                <th class="py-3 px-4 text-center">
+                  <i class="fas fa-cog me-2"></i>操作
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <% risk_performers.each do |performer_data| %>
+                <% stats = performer_data[:statistics] %>
+                <tr class="align-middle">
+                  <td class="py-3 px-4">
+                    <%= link_to performer_data[:performer_name], 
+                        performer_path(performer_data[:performer]), 
+                        class: 'text-decoration-none fw-bold fs-5 text-primary' %>
+                  </td>
+                  <td class="py-3 px-4 text">
+                    <%=
+                      begin
+                        date = stats[:latest_performance_date]
+                        if date.present?
+                          parsed_date = date.is_a?(String) ? Date.parse(date) : date
+                          parsed_date.strftime("%Y年%m月%d日")
+                        else
+                          "不明"
+                        end
+                      rescue ArgumentError, TypeError
+                        "不明"
+                      end
+                    %>
+                  </td>
+                  <td class="py-3 px-4">
+                    <span class="badge bg-danger fs-6 px-3 py-2">
+                      <i class="fas fa-exclamation-triangle me-1"></i>
+                      <%= stats[:low_z_count] %>項目
+                    </span>
+                  </td>
+                  <td class="py-3 px-4 text-center">
+                    <%= link_to '詳細確認', 
+                        unhealthy_risks_detail_performer_path(performer_data[:performer]), 
+                        class: 'btn btn-outline-danger btn-sm' %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <% else %>
+    <div class="alert alert-success border-0 shadow text-center py-5">
+      <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+      <h2 class="text-success mt-3 mb-2">すべて正常です！</h2>
+      <p class="fs-5 mb-0 text-muted">現在、体調不良リスクがある演者はいません。</p>
+    </div>
+  <% end %>
+</div>
+
+<style>
+.performer-link {
+  color: #007bff;
+  font-weight: 600;
+}
+
+.performer-link:hover {
+  text-decoration: underline !important;
+  color: #0056b3;
+}
+
+.table {
+  font-size: 1.1rem;
+}
+
+.table td, .table th {
+  padding: 1rem;
+  vertical-align: middle;
+}
+
+.action-buttons {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+/* リスクレベル別のスタイル */
+.risk-high {
+  background-color: #f8d7da !important;
+}
+
+.risk-medium {
+  background-color: #fff3cd !important;
+}
+
+.risk-low {
+  background-color: #d4edda !important;
+}
+
+.statistics-summary .card {
+  margin-bottom: 1rem;
+}
+
+.statistics-summary .card-body {
+  padding: 1.5rem;
+}
+
+.statistics-summary h2 {
+  font-weight: 800;
+  margin-bottom: 0;
+}
+
+.alert-success h2 {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+</style>
+
+<%# ヘルパーメソッド用のスクリプト %>
+<script>
+<% content_for :javascript do %>
+  <%# リスクレベル判定のヘルパーメソッドをRubyで定義 %>
+<% end %>
+</script>

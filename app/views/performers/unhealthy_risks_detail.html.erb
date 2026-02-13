@@ -1,0 +1,153 @@
+<div class="container mt-4">
+  <div class="row mb-4">
+    <div class="col">
+      <!-- 演者情報表示 -->
+      <h1 class="text mb-3">
+        <%= @performer.name %> のパフォーマンス詳細
+      </h1>
+      
+      <div>
+        <h4>
+        <p class="mb-1"><strong>撮影日:</strong> <%= @statistics[:latest_performance_date]&.strftime("%Y年%m月%d日") || "不明" %></p>
+        <p class="mb-1"><strong>低スコア運動数:</strong> <%= @statistics[:low_z_count] %>種目</p>
+        </h4>
+      </div>
+
+      <!-- 問題のある運動一覧 -->
+      <h2 class="text-danger mb-3">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        問題のある運動一覧
+      </h2>
+      
+      <% low_z_activities = @statistics[:z_scores].select { |z| z[:z_score] <= -1.0 } %>
+      
+      <% if low_z_activities.any? %>
+        <div class="table-responsive">
+          <table class="table table-striped table-bordered">
+            <thead class="table">
+              <tr>
+                <th style="width: 40%;">運動種目</th>
+                <th style="width: 20%;">活動量</th>
+                <th style="width: 20%;">平均活動量</th>
+                <th style="width: 20%;">活動量の差</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% low_z_activities.each do |activity_data| %>
+                <tr class="table">
+                  <td>
+                    <strong><%= Activity.activity_name(activity_data[:index]) %></strong>
+                  </td>
+                  <td>
+                    <span class="badge bg-primary fs-6">
+                      <%= sprintf("%.2f", activity_data[:actual_value]) %>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge bg-secondary fs-6">
+                      <%= sprintf("%.2f", activity_data[:average_value]) %>
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge bg-danger fs-6">
+                      <%= sprintf("%.2f", activity_data[:z_score]) %>
+                    </span>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% else %>
+        <div class="alert alert-success">
+          <i class="fas fa-check-circle me-2"></i>
+          問題のある運動はありません。すべての活動量が基準値内です。
+        </div>
+      <% end %>
+
+      <!-- 全運動のZ-Score一覧 -->
+      <h3 class="text-info mb-3 mt-5">
+        <i class="fas fa-chart-bar me-2"></i>
+        全運動種目のZ-Score
+      </h3>
+      
+      <div class="table-responsive">
+        <table class="table table-hover">
+          <thead class="table-light">
+            <tr>
+              <th style="width: 40%;">運動種目</th>
+              <th style="width: 20%;">活動量</th>
+              <th style="width: 20%;">平均活動量</th>
+              <th style="width: 20%;">活動量の差</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% @statistics[:z_scores].each do |activity_data| %>
+              <% 
+                z_score = activity_data[:z_score]
+                badge_class = if z_score <= -1.0
+                  "bg-danger"
+                elsif z_score <= -0.5
+                  "bg-warning"
+                elsif z_score >= 0.5
+                  "bg-success"
+                else
+                  "bg-success"
+                end
+              %>
+              <tr>
+                <td>
+                  <strong><%= Activity.activity_name(activity_data[:index]) %></strong>
+                </td>
+                <td>
+                  <span class="badge bg-primary fs-6">
+                    <%= sprintf("%.2f", activity_data[:actual_value]) %>
+                  </span>
+                </td>
+                <td>
+                  <span class="badge bg-secondary fs-6">
+                    <%= sprintf("%.2f", activity_data[:average_value]) %>
+                  </span>
+                </td>
+                <td>
+                  <span class="badge <%= badge_class %> fs-6">
+                    <%= sprintf("%.2f", z_score) %>
+                  </span>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+
+        </table>
+      </div>
+<!-- スタイル追加 -->
+<style>
+.table-danger {
+  background-color: #f8d7da !important;
+}
+
+.table-warning {
+  background-color: #fff3cd !important;
+}
+
+.table-success {
+  background-color: #d1edff !important;
+}
+
+.badge.fs-6 {
+  font-size: 0.9rem !important;
+}
+
+.alert {
+  border-left: 4px solid;
+}
+
+.alert-info {
+  border-left-color: #0dcaf0;
+}
+
+.alert-success {
+  border-left-color: #198754;
+}
+</style>
+

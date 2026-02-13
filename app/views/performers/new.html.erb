@@ -1,2 +1,20 @@
-<h1>Performers#new</h1>
-<p>Find me in app/views/performers/new.html.erb</p>
+<div class="container mt-4">
+  <h1 class="mb-4">演者登録</h1>
+
+<%= form_with model: @performer, local: true, html: { multipart: true, id: "upload-form" }, class: "w-25",  data: {turbo: false} do |form| %>
+
+  <div class="mb-3">
+    <%= form.label :name, "名前" %>
+    <%= form.text_field :name, class: "form-control", required: true %>
+  </div>
+
+  <div class="mb-3">
+    <%= form.label :height, "身長 (cm)" %>
+    <%= form.number_field :height, 
+        class: "form-control", required: true, step: 0.1%>
+  </div>
+  
+  <div class="mb-3">
+    <%= form.submit "登録", class: "btn btn-primary" %>
+  </div>
+<% end %>

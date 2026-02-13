@@ -7,6 +7,8 @@ import datetime
 from argparse import RawTextHelpFormatter
 import math
 import json
+import sys
+
 
 COLOR = (0, 255, 0)
 VAR_THICKNESS = 20
@@ -22,17 +24,15 @@ tp = lambda x: list(map(int, x.split(',')))
 
 # Format argument
 parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
-parser.add_argument('--type', help='Set demo_type', default=1)
+# parser.add_argument('--type', help='Set demo_type', default=1)
 parser.add_argument('--limit', help='Set number of detected people', default=100000)
 parser.add_argument('--fps', help='Set FPS', default=20)
 parser.add_argument('--model', help='Set model_data', default='model/yolov8n.pt')
 parser.add_argument('--framesize', type=tp, help='Set width and height of framesize', default='1920,1080')
-parser.add_argument('--output', help='Output video data', default=False)
-parser.add_argument('--csv', help='Output CSV data', default=False)
 parser.add_argument('--start', help='Set start of frame', type=int, default=2)
 parser.add_argument('--end', help='Set end of frame', type=int, default=0)
+# parser.add_argument('--segments', help='Set number of segments to divide (0 means no division)', type=int, default=13)
 parser.add_argument('input', help='Input video data', default=f'input_data/{dt_now}.mp4')
-parser.add_argument('output_image', help='Output first frame image', default='output_image.jpg')
 
 parser.usage = parser.format_help()
 
@@ -42,15 +42,13 @@ fps = args.fps
 frame_width = args.framesize[0]
 frame_height = args.framesize[1]
 detect_limit = args.limit
-detect_type = int(args.type)
+# detect_type = int(args.type)
 input_file = args.input
-output_file = args.output
-csv_file = args.csv
 model_data = args.model
 start_frame = args.start
 end_frame = args.end
+# num_segments = args.segments  # 追加: 分割数
 validation = OUTLIER
-output_image = args.output_image
 
 # Load learning model
 model = YOLO(model_data)
@@ -73,35 +71,25 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
 print("---start---")
 
-# Initialize detected_data array
 coordinate = np.array(np.zeros((4, detect_limit), dtype=int)).T.tolist()
 velocity = np.array(np.zeros((4, detect_limit), dtype=int)).T.tolist()
 pre_velocity = np.array(np.zeros((4, detect_limit), dtype=int)).T.tolist()
 activity_average = np.zeros(detect_limit, dtype=int)
 
-# Analysis results storage
 analysis_results = {}
-# Track baseline IDs from the first 10 frames
 baseline_ids = set()
 
-# Store coordinates of the previous frame
 previous_coordinates = {}
 
 frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-if csv_file:
-    csv_file = open(csv_file, mode='w', newline='')
-    csv_writer = csv.writer(csv_file)
-    csv_writer.writerow(['frame_number', 'activity'])
-
-if output_file:
-    fmt = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    writer = cv2.VideoWriter(output_file, fmt, fps, (frame_width, frame_height))
-
-first_frame_saved = False
 frame_baseline_limit = 10
-frame_skip = 1000  # ここで何フレームごとに処理するか指定
+frame_skip = 1
+
+print(f"Processing every {frame_skip} frames", file=sys.stderr)
+print(f"Start frame: {start_frame}, End frame: {end_frame}", file=sys.stderr)
+
+frame_detections = []
 
 for i in range(frame_count):
     ret, frame = cap.read()
@@ -120,14 +108,14 @@ for i in range(frame_count):
     boxes = results[0].boxes
     annotatedFrame = results[0].plot()
 
-    if not first_frame_saved:
-        cv2.imwrite(output_image, annotatedFrame)
-        first_frame_saved = True
-
     current_ids = set()
     current_coordinates = {}
+    
     for box, cls in zip(boxes, classes):
-        x1, x2, y1, y2 = [int(i) for i in box.xyxy[0]]
+        x1, y1, x2, y2 = [int(i) for i in box.xyxy[0]]
+        print(f"Frame {played_frame}: box coordinates: ({x1}, {y1}), ({x2}, {y2})", file=sys.stderr)
+        width = max(1, x2 - x1)
+        height = max(1, y2 - y1)
         name = names[int(cls)]
         if box.id is not None:
             ids = int(box.id[0])
@@ -151,85 +139,123 @@ for i in range(frame_count):
             if closest_id is not None:
                 ids = closest_id
             else:
-                print(f"Frame {played_frame}: Over-detection, skipping ID {ids}")
+                print(f"Frame {played_frame}: Over-detection, skipping ID {ids}", file=sys.stderr)
                 continue
 
         current_ids.add(ids)
         current_coordinates[ids] = (x1, x2, y1, y2)
+        
+        # 速度計算
+        vx1 = abs(x1 - coordinate[ids][0])
+        vx2 = abs(x2 - coordinate[ids][1])
+        vy1 = abs(y1 - coordinate[ids][2])
+        vy2 = abs(y2 - coordinate[ids][3])
 
-        velocity[ids][0], velocity[ids][1], velocity[ids][2], velocity[ids][3] = \
-            abs(x1-coordinate[ids][0]), abs(x2-coordinate[ids][1]), abs(y1-coordinate[ids][2]), abs(y2-coordinate[ids][3])
+        velocity[ids] = [vx1, vx2, vy1, vy2]
 
-        match detect_type:
-            case 1:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + abs(velocity[ids][1] - pre_velocity[ids][1]) + abs(velocity[ids][2] \
-                             - pre_velocity[ids][2]) + abs(velocity[ids][3] - pre_velocity[ids][3])
-            case 2:
-                evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + abs(velocity[ids][1] - pre_velocity[ids][1]) + abs(velocity[ids][2] \
-                             - pre_velocity[ids][2]) + abs(velocity[ids][3] - pre_velocity[ids][3])
-            case _:
-                print("Please select a specific type")
+        evaluation = abs(velocity[ids][0] - pre_velocity[ids][0]) + \
+                    abs(velocity[ids][1] - pre_velocity[ids][1]) + \
+                    abs(velocity[ids][2] - pre_velocity[ids][2]) + \
+                    abs(velocity[ids][3] - pre_velocity[ids][3])
 
-        # Mark outlier if evaluation exceeds 30
         if evaluation > 100:
             evaluation = 0.00
 
         coordinate[ids] = box.xyxy[0]
+        pre_velocity[ids] = velocity[ids]
         activity_average[ids] = activity_average[ids] + evaluation
 
         # Store results for averaging
-        if played_frame >= 415:
+        if played_frame >= start_frame + frame_baseline_limit:
             if ids not in analysis_results:
                 analysis_results[ids] = []
             analysis_results[ids].append(evaluation)
-
-        if played_frame >= start_frame+2:
-            print(f"Frame {played_frame-2}: Evaluation = {'{:.2f}'.format(evaluation)}, ID = {ids}")
-
-        if output_file:
-            LINE_START = (int(x1), int(y2))
-            LINE_FINISH = (int(x1), int(y2-evaluation*4))
-            ACTIVITY_COORDINATE = (x1+15, y2-10)
-
-            if played_frame >= start_frame+3:
-                cv2.line(annotatedFrame, pt1=LINE_START, pt2=LINE_FINISH, color=COLOR, thickness=VAR_THICKNESS, lineType=cv2.LINE_4)
-            cv2.putText(annotatedFrame, f"HUMAN ACTIVITY {int(evaluation)}", ACTIVITY_COORDINATE, cv2.FONT_HERSHEY_PLAIN, FONT_SCALE, COLOR, TEXT_THICKNESS, cv2.LINE_AA)
-            writer.write(annotatedFrame)
-
-        if csv_file:
-            if played_frame >= start_frame+2:
-                csv_writer.writerow([played_frame-2, '{:.2f}'.format(evaluation)])
+            
+            # 新規追加: フレームごとの検出データを保存
+            frame_detections.append({
+                "frame_number": played_frame,
+                "person_id": ids,
+                "x1": x1,
+                "y1": y1,
+                "x2": x2,
+                "y2": y2
+                # "activity_value": float(evaluation)
+            })
 
     # Update previous coordinates
     for id in baseline_ids:
         if id not in current_ids:
-            # Retain the last known position of IDs not detected in the current frame
             current_coordinates[id] = previous_coordinates.get(id, (0, 0, 0, 0))
     previous_coordinates = current_coordinates
 
-# Calculate averages for the last segments
-averaged_results = {}
-for obj_id, evaluations in analysis_results.items():
-    if len(evaluations) > 13:
-        segment_length = len(evaluations) // 13
-        averaged_results[obj_id] = [
-            sum(evaluations[i * segment_length:(i + 1) * segment_length]) / segment_length
-            for i in range(13)
-        ]
-    else:
-        averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
+# Calculate averages based on segment configuration
+# averaged_results = {}
+# frame_information = {}
 
-print("--- Averages per segment ---")
-for obj_id, averages in averaged_results.items():
-   print(f"ID: {obj_id}, Averages: {averages}")
+# for obj_id, evaluations in analysis_results.items():
+#     if num_segments == 0:
+#         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
+#         frame_information[obj_id] = [{
+#             'segment': 0,
+#             'start_frame': start_frame + frame_baseline_limit,
+#             'end_frame': start_frame + frame_baseline_limit + len(evaluations) - 1
+#         }]
+#         print(f"ID {obj_id}: No division, using overall average", file=sys.stderr)
+        
+#     elif len(evaluations) >= num_segments:
+#         segment_length = len(evaluations) // num_segments
+#         averaged_results[obj_id] = []
+#         frame_information[obj_id] = []
+        
+#         print(f"ID {obj_id}: Dividing {len(evaluations)} frames into {num_segments} segments", file=sys.stderr)
+        
+#         for i in range(num_segments):
+#             start_idx = i * segment_length
+#             end_idx = (i + 1) * segment_length - 1 if i < num_segments - 1 else len(evaluations) - 1
+            
+#             segment_values = evaluations[start_idx:end_idx + 1]
+#             average_value = sum(segment_values) / len(segment_values)
+            
+#             averaged_results[obj_id].append(average_value)
+#             frame_information[obj_id].append({
+#                 'segment': i,
+#                 'start_frame': start_frame + frame_baseline_limit + start_idx,
+#                 'end_frame': start_frame + frame_baseline_limit + end_idx
+#             })
+            
+#     else:
+#         averaged_results[obj_id] = [sum(evaluations) / len(evaluations)]
+#         frame_information[obj_id] = [{
+#             'segment': 0,
+#             'start_frame': start_frame + frame_baseline_limit,
+#             'end_frame': start_frame + frame_baseline_limit + len(evaluations) - 1,
+#             'requested_segments': num_segments,
+#             'actual_segments': 1,
+#             'reason': 'insufficient_data'
+#         }]
+#         print(f"ID {obj_id}: Insufficient data for {num_segments} segments, using overall average", file=sys.stderr)
 
-if csv_file:
-    csv_file.close()
-if output_file:
-    writer.release()
+# print("--- Averages per segment ---", file=sys.stderr)
+# print(f"Segmentation mode: {num_segments} segments" if num_segments > 0 else "No segmentation", file=sys.stderr)
+# for obj_id, averages in averaged_results.items():
+#     print(f"ID: {obj_id}, Averages: {averages}", file=sys.stderr)
+#     print(f"ID: {obj_id}, Frames: {frame_information[obj_id]}", file=sys.stderr)
+# print("---end---", file=sys.stderr)
 
-cv2.destroyAllWindows()
-print("---end---")
+# 出力データの準備
+# safe_results = {str(obj_id): [float(v) for v in averages] for obj_id, averages in averaged_results.items()}
 
-safe_results = {str(obj_id): [float(v) for v in averages] for obj_id, averages in averaged_results.items()}
-print(json.dumps({"averaged_results": safe_results}))
+# 最終的なJSON出力（frame_detectionsを追加）
+all_ids = {d["person_id"] for d in frame_detections}
+output_data = {
+    # "averaged_results": safe_results,
+    "frame_detections": frame_detections,
+#     "analysis_config": {
+#         "total_ids": len(all_ids),
+#         "total_frames": len(frame_detections),
+#         "frame_width": frame_width,
+#         "frame_height": frame_height
+#     }
+}
+
+print(json.dumps(output_data))

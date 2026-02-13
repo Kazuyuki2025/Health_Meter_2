@@ -1,40 +1,50 @@
-<div class="home-middle">
-  <div class="top-performers">
-    <h2>作業者一覧</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>作業者名</th>
-          <th>パフォーマンス更新日</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @top_performers.each do |performer| %>
-          <tr>
-            <td><%= performer[:name] %></td>
-            <td><%= performer[:latest_performance_date] %></td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+<div class="container mt-4">
+  <h1 class="mb-4">演者一覧</h1>
+
+ <div>
+  <%= link_to '新規作成', new_performer_path, class: 'btn btn-primary btn-lg fs-5 mb-3' %>
   </div>
-  <div class="unhealthy-performers">
-    <h2>体調不良一覧</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>作業者名</th>
-          <th>問題のある運動数</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% @unhealthy_performers.each do |performer| %>
+
+  <% if @performers.present? %>
+    <div class="table-responsive">
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
           <tr>
-            <td><%= performer[:name] %></td>
-            <td><%= performer[:low_z_count] %></td>
+            <th class="fs-5">名前</th>
+            <th class="fs-5">操作</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-</div>
+        </thead>
+        <tbody>
+          <% @performers.each do |performer| %>
+            <tr>
+              <td class="fs-4">
+                <%= link_to performer.name, performer_path(performer), class: 'performer-link' %>
+              </td>
+              <td>
+                <div class="d-flex gap-2">
+                  <%= link_to '編集', edit_performer_path(performer), class: 'btn btn-primary btn-lg fs-5' %>
+                  <%= button_to '削除', 
+                      performer_path(performer), 
+                      method: :delete, 
+                      class: "btn btn-danger btn-lg fs-5",
+                      data: { turbo_confirm: '本当に削除しますか？' } %>
+                </div>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <div class="alert alert-info fs-4">
+      <i class="fas fa-info-circle me-2"></i>
+      演者が登録されていません。
+    </div>
+  <% end %>
+
+<style>
+.table {
+  font-size: 1.2rem;
+}
+
+</style>

@@ -3,10 +3,76 @@ class PerformersController < ApplicationController
     @performer = Performer.new
   end
 
+  def create
+    @performer = Performer.new(params.require(:performer).permit(:num, :name, :height))
+
+    if @performer.save
+      redirect_to performers_path, notice: "が作成されました"
+    else
+      render :new, status: :unprocessable_entity
+    end
+  rescue => e
+    Rails.logger.error "エラー発生: #{e.message}"
+    flash.now[:alert] = "パフォーマーの作成中にエラーが発生しました"
+    render :new, status: :unprocessable_entity
+  end
   def show
-    # 詳細表示ロジック
+    @performer = Performer.find(params[:id])
+    @performances = @performer.performances.includes(:video, :activities)
+                                           .joins(:video)
+                                           .order(Arel.sql("videos.date DESC NULLS LAST, videos.created_at DESC"))
+
+    @activity_types = Activity.activity_types
+    @performance_data = @performer.get_performance_data
+    @overall_stats = @performer.calculate_overall_stats
   end
 
   def index
+    @performers = Performer.all
+  end
+
+  def edit
+    @performer = Performer.find(params[:id])
+  end
+
+  def update
+    @performer = Performer.find(params[:id])
+    if @performer.update(performer_params)
+    redirect_to performers_path, notice: "動画情報を更新しました"
+    else
+    render :edit, status: :unprocessable_entity
+    end
+  end
+  def destroy
+    @performer = Performer.find(params[:id])
+    @performer.destroy
+    redirect_to performers_path, notice: "パフォーマーが削除されました"
+  rescue => e
+    Rails.logger.error "エラー発生: #{e.message}"
+    flash.now[:alert] = "パフォーマーの削除中にエラーが発生しました"
+    render :index, status: :unprocessable_entity
+  end
+  def healthy_ranking
+    @ranking_data = Performer.with_latest_activity_average
+  end
+
+  def performer_params
+    params.require(:performer).permit(:num, :name, :height)
+  end
+
+  def unhealthy_risks
+    @performers_risk_data = Performer.sort_by_unhealthy_risk
+    @all_performers_data = Performer.get_all_performers_with_statistics
+  end
+
+  def unhealthy_risks_detail
+    @performer = Performer.find(params[:id])
+    @statistics = @performer.detect_unhealthy_status
+
+    unless @statistics
+      flash[:alert] = "統計データが不足しています"
+      redirect_to performers_path
+      nil
+    end
   end
 end
