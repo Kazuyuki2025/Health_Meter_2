@@ -54,6 +54,6 @@ Health_Meter_2 は，[Health_Meter]() を運用化するために新しく実装
 
 ## 実行環境
 
-- **Ruby / Rails**: Ruby 3.2.3 / Rails 8.0.2
+- **Ruby / Rails**: Ruby 3.2.2 / Rails 8.0.2
 - **Python**: 3.12.3  
-- **DBサーバ**: SQLite 
+- **DBサーバ**: SQLite
