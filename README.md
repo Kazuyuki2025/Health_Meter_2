@@ -14,7 +14,7 @@ Health_Meter_2 は，[Health_Meter]() を運用化するために新しく実装
    * 活動量が大きい順に演者を表示
 * 体調不良の疑いのある演者
    * 最新の活動量が閾値を下回った場合にその演者を表示
-## setup
+## 使用方法
 1. リポジトリをクローン
    '''bash
    https://github.com/Kazuyuki2025/Health_Meter_2.git
